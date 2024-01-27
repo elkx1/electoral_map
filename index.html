@@ -6,15 +6,30 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="http://d3js.org/topojson.v1.min.js"></script>
     <script src="https://unpkg.com/d3-simple-slider"></script>
+    <script src="lib/simplify/simplify.js"></script>
+    <script src='https://unpkg.com/@turf/turf@6/turf.min.js'></script>
 </head>
 
 <body>
-
     <div id="map"></div>
 
     
     <div id="chart-container"></div>
     <div id="slider-range"></div>
+
+    <style>
+        .tooltip-mapped-data {
+            position: absolute;
+            text-align: center;
+            padding: .5rem;
+            background: #FFFFFF;
+            color: #313639;
+            border: 1px solid #313639;
+            border-radius: 8px;
+            pointer-events: none;
+            font-size: 0.8rem;
+        }
+    </style>
 
     <script>
         // DATA SOURCES:
@@ -22,20 +37,39 @@
         //  TopoGEO shapes: https://martinjc.github.io/UK-GeoJSON/
         //  Electoral results: https://www.electoralcalculus.co.uk/flatfile.html
         //
+        // Feature ideas:
+        //
+        //  -> Filter by party
+        //  -> Additional years
+        //  -> Scotland & NI
+        //  -> Other Countries
+        //  -> Other election results data sets - e.g., predicted results by electoral calculus in that year
+        //  -> More constituency details
+        //  -> Politician voting record lookup direct from constituency
+        //  -> Show county boundaries
+        //  -> Search for constituency
+        //  -> Constituency list
+        // 
 
         // Width and height of the SVG container
         const width = 1200;
         const height = 800;
+
+        const zoom = d3.zoom().scaleExtent([1, 16]).on("zoom", zoomed);
 
         const svg = d3.select("#chart-container")
             .append("svg")
             .attr("width", width)
             .attr("height", height);
 
-        //   svg.append("rect")
-        //     .attr("width", "100%")
-        //     .attr("height", "100%")
-        //     .attr("fill", "pink");
+        const g = svg.append("g");
+
+        function zoomed(event) {
+            const {transform} = event;
+            g.attr("transform", transform);
+        }
+
+        svg.call(zoom);
 
         // Projection using geoMercator
         const projection = d3.geoMercator()
@@ -136,15 +170,89 @@
             svg.selectAll("path").remove();
         }
 
+        var tooltipDiv = d3.select("body").append("div")
+            .attr("class", "tooltip-mapped-data")
+            .style("visibility", "hidden")
+            .style("z-index", "0");
+
+        function generateTooltipContents(feature, itemData) {
+            tooltipDiv.html("")
+            
+            tooltipDiv.append("p").text(itemData.title);
+            const pie = d3.pie()
+                .value(function (d) { return d.score; } );
+            const dataReady = pie(itemData.pieData);
+            var width = 100;
+            var height = 100;
+            const div = tooltipDiv.append("svg")
+                .style("width", width + "px")
+                .style("height", height + "px")
+                .append("g")
+                .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+            div.selectAll(null)
+                .data(dataReady)
+                .enter()
+                .append("path")
+                .attr('d', d3.arc().innerRadius(width / 3).outerRadius(width / 2))
+                .attr("fill", function(d) { return getPartyColor(d.data.party); });
+        }
+
+        function setMappedData(features, dataSetCachedData) {
+            g.selectAll(".map-path")
+                .attr("fill", function (d) {
+                    return dataSetCachedData.features[d.id].fill;
+                })
+                .on('mouseover', function (d, feature) {
+                    d3.select(this).transition()
+                        .duration('50')
+                        .attr('opacity', '.45')
+                        .attr("stroke", "black")
+                        .attr("stroke-width", "1px");
+
+                    tooltipDiv.style("visibility", "visible");
+                    tooltipDiv.append(generateTooltipContents(feature, dataSetCachedData.features[feature.id]));
+                })
+                .on('mousemove', function (d, feature) {
+                    tooltipDiv
+                        .style("left", (d.pageX + 10) + "px")
+                        .style("top", (d.pageY - 15) + "px")
+                        .style("position", "absolute");
+                })
+                .on('mouseout', function (d, feature) {
+                    d3.select(this).transition()
+                        .duration('50')
+                        .attr('opacity', '1')
+                        .attr("stroke", "black")
+                        .attr("stroke-width", "0.1px");
+
+                    tooltipDiv.style("visibility", "hidden");
+                });
+        }
+
         function drawMappedData(features, dataSetCachedData) {
             // Render the map
-            svg.selectAll("path")
+            var node = g.selectAll(".map-poly")
                 .data(features)
-                .enter().append("path")
+                .attr("class", "map-poly")
+                .enter()
+                .append("g");
+
+            node.append("clipPath")
+                .attr("id", function(d) { return "clip" + d.id; })
+                .append("path")
+                .attr("d", path);
+            
+            node.append("path")
+                .attr("class", "map-path")
                 .attr("d", path)
                 .attr("fill", function (d) {
                     return dataSetCachedData.features[d.id].fill;
-                });
+                })
+                .attr("stroke", "black")
+                .attr("stroke-width", "0.1px")
+                .attr("clip-path", function (d) { return "url(#clip" + d.id + ")"; });
+
+            setMappedData(features, dataSetCachedData);
         };
 
         function computeDataSetCachedData(dataSet) {
@@ -153,6 +261,7 @@
 
             // Create a map of constituency names to winning parties
             const winningParties = {};
+            const votesByConstituencyName = {};
             dataSet.forEach(result => {
                 const constituency = result.Name;
                 const partyScores = parties.map(party => ({ party, score: parseInt(result[party]) }));
@@ -160,10 +269,11 @@
                 const winningParty = partyScores.reduce((prev, current) => (prev.score > current.score ? prev : current)).party;
                 winningParties[constituency] = winningParty;
 
+                votesByConstituencyName[constituency] = partyScores;
                 // console.log("Winnning party for " + constituency + ": " + winningParty)
             });
 
-            return {"winningParties": winningParties};
+            return {"winningParties": winningParties, "votesByConstituencyName": votesByConstituencyName};
         }
 
         function computeFeatureData(feature, mappedDataSet, dataSetCachedData) {
@@ -192,12 +302,101 @@
             }
 
             const winningParty = dataSetCachedData.winningParties[matchingName];
-            return {"fill": getPartyColor(winningParty)};
+            return {
+                "title": constituencyName,
+                "fill": getPartyColor(winningParty),
+                "pieData": dataSetCachedData.votesByConstituencyName[matchingName],
+            };
+        }
+
+        function filterBadPolygons(feature) {
+            function isValid(poly) {
+                return !(poly.length <= 4 && poly[0] == poly[poly.length - 1]);
+            }
+            
+            if (feature.geometry.type == "MultiPolygon") {
+                const minPolygonArea = 1e-5;
+                feature.geometry.coordinates = feature.geometry.coordinates.map(polyList => polyList.filter(poly => d3.polygonArea(poly) > minPolygonArea));
+            }
+        }
+
+        function simplifyMapFeature(feature) {
+            // filterBadPolygons(feature);
+            if (feature.properties.PCON13NM == "Wirral West") {
+                console.log(feature);
+            }
+            filterBadPolygons(feature);
+            // Simplifying the geometry of the map features improves render performance
+
+            // todo rewrite the simplify library using my own impl of Douglas-Peucker, so we don't have
+            // to swizzle this data like this
+
+            function polygonArraysToDicts(poly) {
+                return poly.map(function (point) { return {x: point[0], y: point[1]}; });
+            }
+
+            function polygonDictsToArrays(poly) {
+                return poly.map(function (point) { return [point.x, point.y]; });
+            }
+
+            function simplifyPolygon(poly) {
+                if (poly.length <= 4) {
+                    // Otherwise the Isle of Wight disappears
+                    return poly;
+                }
+                var dicts = polygonArraysToDicts(poly);
+                var simplified = simplify(dicts, 0.001, true);
+                var arrays = polygonDictsToArrays(simplified);
+                return arrays;
+            }
+
+            // todo should do different things for multipolygon vs polygon
+            if (feature.geometry.type == "MultiPolygon") {
+                feature.geometry.coordinates = feature.geometry.coordinates.map(polyList => polyList.map(simplifyPolygon));
+                // feature.geometry.coordinates = [];
+            }
+            else if (feature.geometry.type == "Polygon") {
+                feature.geometry.coordinates = feature.geometry.coordinates.map(simplifyPolygon);
+            }
+            else {
+                throw new Error("Unsupported geometry '" + feature.geometry.type + "'");
+            }
+        }
+
+        function simplifyMapFeaturesOld(mapFeatures) {
+            // Filter out invalid geometries
+            for (feature of mapFeatures) {
+                simplifyMapFeature(feature);
+            }
+            return mapFeatures;
+        }
+
+        function simplifyMapFeatures(mapFeatures) {
+            // Filter out invalid geometries
+            for (feature of mapFeatures) {
+                filterBadPolygons(feature);
+            }
+
+            var featureCollection = {
+                type: "FeatureCollection",
+                features: mapFeatures
+            };
+
+            // Buffer the point by 10 units
+            var buffered = turf.buffer(featureCollection, 0, { units: 'meters' });
+            
+            // return buffered.features;
+            // Simplify the buffered geometry
+            // var simplified = turf.simplify(featureCollection, { tolerance: 0.001, highQuality: false });
+            // return simplified.features
+
+            // return buffered.features;
         }
 
         function onDataLoaded(mapGeoJSON, mappedDataSetConfigs, mappedDataSets) {
             // The things we want to draw
             mapFeatures = topojson.feature(mapGeoJSON, mapGeoJSON.objects.wpc).features
+            mapFeatures = simplifyMapFeaturesOld(mapFeatures);
 
             // Cache the drawing information
             allDataSetsCachedData = [];
@@ -237,8 +436,7 @@
 
             sliderRange.on('onchange', val => {
                 console.log("onchange", electionFiles[val].filename);
-                clearPaths();
-                drawMappedData(mapFeatures, allDataSetsCachedData[val]);
+                setMappedData(mapFeatures, allDataSetsCachedData[val]);
             })
         }
 
