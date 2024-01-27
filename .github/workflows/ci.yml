@@ -38,10 +38,10 @@ jobs:
     - name: Bundle dependencies
       run: npm run build
 
-    # - name: Build website
-    #   uses: actions/jekyll-build-pages@v1
-    #   with:
-    #     source: dist
+    - name: Build website
+      uses: actions/jekyll-build-pages@v1
+      # with:
+        # source: dist
 
     - name: Deploy to GitHub Pages
       id: deployment
