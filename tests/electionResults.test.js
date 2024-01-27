@@ -1,4 +1,4 @@
-const electionDataModule = require('../src/electionDataModule.js'); // Adjust the import path accordingly
+const electionDataModule = require('../src/js/electionDataModule.js');
 
 // Sample election data
 const sampleData = [

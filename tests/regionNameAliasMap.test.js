@@ -1,15 +1,15 @@
-const electionDataModule = require('../src/electionDataModule.js');
+const electionDataModule = require('../src/js/electionDataModule.js');
 
 const fs = require('fs');
 const path = require('path');
 
 const geoJSONDataSets = [
-    { date: new Date("2014-01-01"), path: path.join(__dirname, '../data/topo_westminster_parliamentary_constituencies_2014.json') },
+    { date: new Date("2014-01-01"), path: path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_2014.json') },
 ];
 
 const electionResultsDataSets = [
-    { date: new Date("2010-01-01"), path: path.join(__dirname, '../data/electdata_2010ug.txt') },
-    { date: new Date("2015-01-01"), path: path.join(__dirname, '../data/electdata_2015.txt') },
+    { date: new Date("2010-01-01"), path: path.join(__dirname, '../src/data/electdata_2010ug.txt') },
+    { date: new Date("2015-01-01"), path: path.join(__dirname, '../src/data/electdata_2015.txt') },
 ];
 
 describe('Map and MapRegion classes', () => {

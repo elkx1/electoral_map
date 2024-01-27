@@ -6,8 +6,8 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script src="https://unpkg.com/d3-simple-slider"></script>
-    <script src="../lib/simplify/simplify.js"></script>
-    <script src='https://unpkg.com/@turf/turf@6/turf.min.js'></script>
+
+    <script src="bundle.js"/>
 </head>
 
 <body>
@@ -574,10 +574,6 @@
         }
 
         function simplifyMapFeature(feature) {
-            // filterBadPolygons(feature);
-            if (feature.properties.PCON13NM == "Wirral West") {
-                console.log(feature);
-            }
             filterBadPolygons(feature);
             // Simplifying the geometry of the map features improves render performance
 
@@ -711,6 +707,8 @@
             function (results) {
                 mapGeoJSON = results[0];
                 electionFilesData = results.slice(1);
+
+                console.log(electionFilesData);
                 onDataLoaded(mapGeoJSON, electionFiles, electionFilesData);
             }
         )

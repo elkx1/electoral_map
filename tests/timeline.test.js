@@ -1,4 +1,4 @@
-const electionDataModule = require('../src/electionDataModule.js'); // Adjust the import path accordingly
+const electionDataModule = require('../src/js/electionDataModule.js');
 
 describe('Timeline class', () => {
   let timeline;

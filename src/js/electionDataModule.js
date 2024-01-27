@@ -1,5 +1,5 @@
 const topojson = require('topojson-client');
-const simplify = require('../lib/simplify/simplify.js');
+const simplify = require('./simplify/simplify.js');
 
 class ElectionResults {
   constructor(date, results) {

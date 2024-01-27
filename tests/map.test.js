@@ -1,10 +1,10 @@
-const electionDataModule = require('../src/electionDataModule.js');
+const electionDataModule = require('../src/js/electionDataModule.js');
 
 const fs = require('fs');
 const path = require('path');
 
 // Load GeoJSON from file
-const geoJSONFilePath = path.join(__dirname, '../data/topo_westminster_parliamentary_constituencies_2014.json');
+const geoJSONFilePath = path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_2014.json');
 const geoJSONFileContent = fs.readFileSync(geoJSONFilePath, 'utf8');
 const geoJSON = JSON.parse(geoJSONFileContent);
 
