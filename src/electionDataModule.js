@@ -55,6 +55,32 @@ class ElectionResults {
   getVotes(regionName) {
     return this._votes[regionName];
   }
+
+  static parse(date, resultsStr) {
+    const lines = resultsStr.split(new RegExp("\r\n|\n"));
+    if (lines.length == 0) {
+      return [];
+    }
+
+    function splitLine(line) {
+      // Don't care about escaping right now
+      return line.split(";");
+    }
+
+    const columns = splitLine(lines[0]);
+    const objects = lines.slice(1).map(splitLine).map(parts => {
+      var item = {};
+      for (var i = 0; i < parts.length; ++i) {
+        if (i >= columns.length) {
+          throw new Error("More elements found than columns in row");
+        }
+        item[columns[i]] = parts[i];
+      }
+      return item;
+    })
+
+    return new ElectionResults(date, objects);
+  }
 }
 
 function polygonArea(poly) {
@@ -153,6 +179,10 @@ class Map {
       this.regions.push(new MapRegion(feature));
     }
   }
+
+  getRegionNames() {
+    return this.regions.map(region => region.name());
+  }
 }
 
 class Timeline {
@@ -166,7 +196,7 @@ class Timeline {
     if (!(date instanceof Date)) {
       throw new TypeError('Expected an instance of Date');
     }
-    
+
     if (this.objects.length != 0) {
       if (object.date <= this.objects[this.objects.length - 1].date) {
         throw new Error('Non-monotonic object added to Timeline');
@@ -195,9 +225,143 @@ class Timeline {
   }
 }
 
+class RegionNameAliasMap {
+  constructor(mapsArray, electionResultsArray) {
+    function getAllRegionNames(collection) {
+      const superSet = new Set();
+      collection.map(item => item.getRegionNames().forEach(v => superSet.add(v)));
+      return superSet;
+    }
+
+    this.mapRegionNames = getAllRegionNames(mapsArray);
+    this.electionDataRegionNames = getAllRegionNames(electionResultsArray);
+
+    // Alias mapping between constituency names in election data and GeoJSON data, 
+    // for items that cannot be mechanically translated
+    this._manualAliases = {
+      // "GeoJSONName": "ElectionName",
+      // Add more aliases as needed
+  
+      // "Ashton under Lyne": "Ashton-under-Lyne",
+      // "Surrey South West": "South West Surrey",
+      "Kingston upon Hull West and Hessle": "Hull West and Hessle",
+      "Kingston upon Hull East": "Hull East",
+      "Kingston upon Hull North": "Hull North",
+      "South Basildon and East Thurrock": "Basildon South and East Thurrock",
+      "Richmond (Yorks)": "Richmond",
+    };
+
+    var remaining = new Set(this.electionDataRegionNames);
+    var electionResultsRegionNameByMapRegionName = {};
+    var mapRegionNameByElectionResultsRegionName = {};
+    function saveMapping(mapRegionName, electionRegionName) {
+      electionResultsRegionNameByMapRegionName[mapRegionName] = electionRegionName;
+      mapRegionNameByElectionResultsRegionName[electionRegionName] = mapRegionName;
+      remaining.delete(electionRegionName);
+    }
+
+    for (const mapRegionName of this.mapRegionNames) {
+      if (remaining.has(mapRegionName)) {
+        saveMapping(mapRegionName, mapRegionName);
+        continue;
+      }
+
+      let potentialAliases = this.getMapRegionNamePotentialAliases(mapRegionName);
+      var found = false;
+      for (const alias of potentialAliases) {
+        if (remaining.has(alias)) {
+          saveMapping(mapRegionName, alias);
+          found = true;
+          break;
+        }
+      }
+
+      if (!found)
+      {
+        throw new Error("No matching region name found in election data for map region '" + mapRegionName + "'");
+      }
+    }
+
+    if (remaining.size != 0) {
+      console.log("WARNING: No matching region name found in map for election data regions: " + new Array(...remaining).join(', '));
+    }
+
+    this._electionResultsRegionNameByMapRegionName = electionResultsRegionNameByMapRegionName;
+    this._mapRegionNameByElectionResultsRegionName = mapRegionNameByElectionResultsRegionName;
+
+    this.missingMapRegions = remaining;
+  }
+
+  getElectionDataRegionNameByMapRegionName(mapRegionName) {
+    return this._electionResultsRegionNameByMapRegionName[mapRegionName];
+  }
+
+  getMapRegionNameByElectionDataRegionName(electionDataRegionName) {
+    return this._mapRegionNameByElectionResultsRegionName[electionDataRegionName];
+  }
+
+  // Aliases between election data name and GeoJSON name
+  // The GeoJSON name appears to be better so go with that normally for display
+  getMapRegionNamePotentialAliases(name) {
+    var aliases = [name.replaceAll("-", " ").replaceAll(",", "")];
+
+    if (name in this._manualAliases) {
+      aliases.push(this._manualAliases[name]);
+    }
+
+    const swappedEndings = [
+      { "name": "North West", "has_comma": false },
+      { "name": "North East", "has_comma": false },
+      { "name": "South East", "has_comma": false },
+      { "name": "South West", "has_comma": false },
+      { "name": "Central", "has_comma": false },
+      { "name": "North", "has_comma": false },
+      { "name": "East", "has_comma": false },
+      { "name": "South", "has_comma": false },
+      { "name": "West", "has_comma": false },
+      { "name": "Mid", "has_comma": false }, // Pretty mid
+      { "name": "City of", "has_comma": true },
+      { "name": "The", "has_comma": true },
+    ];
+
+    function swapEndings(namePart) {
+      let foundAlias = null;
+      for (const special of swappedEndings) {
+        let specialName = special["name"]
+        if (namePart.startsWith(specialName + " ")) {
+          foundAlias = namePart.substring(specialName.length + 1, namePart.length) + (special["has_comma"] ? "," : "") + " " + specialName;
+          break;
+        }
+      }
+      return foundAlias;
+    }
+
+    if (name.includes("and")) {
+      let partAliases = [];
+      for (const part of name.split(" and ")) {
+        let swapped = swapEndings(part);
+        if (swapped == null) {
+          partAliases.push(part);
+        }
+        else {
+          partAliases.push(swapped);
+        }
+      }
+      aliases.push(partAliases.join(" and "));
+      aliases.push(partAliases.reverse().join(" and "));
+    }
+    else {
+      aliases.push(swapEndings(name))
+    }
+
+    return aliases;
+  }
+}
+
 module.exports = {
   ElectionResults: ElectionResults,
   MapRegion: MapRegion,
   Map: Map,
   Timeline: Timeline,
+  RegionNameAliasMap: RegionNameAliasMap,
 };
