@@ -57,12 +57,6 @@
         //  -> Constituency list
         // 
 
-        // Width and height of the SVG container
-        const width = 1200;
-        const height = 800;
-
-        const zoom = d3.zoom().scaleExtent([1, 16]).on("zoom", zoomed);
-
         const container = d3.select("#chart-container");
         const svg = container.append("svg");
         const g = svg.append("g");
@@ -76,12 +70,13 @@
             g.attr("transform", transform);
         }
 
+        const zoom = d3.zoom().scaleExtent([0.3, 16]).on("zoom", zoomed);
         svg.call(zoom);
 
         // Projection using geoMercator
         const projection = d3.geoMercator()
             .scale(5800)
-            .center([-2.5, 54.5]);
+            .center([-1.5, 54.5]);
 
         // Create a GeoPath generator
         const path = d3.geoPath().projection(projection);
