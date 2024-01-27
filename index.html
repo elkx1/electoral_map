@@ -11,23 +11,29 @@
 </head>
 
 <body>
-    <div id="map"></div>
-
-    
-    <div id="chart-container"></div>
-    <div id="slider-range"></div>
-
     <style>
+        /* Apply a reset to ensure no default margin/padding */
+        body, html {
+            margin: 0;
+            padding: 0;
+        }
+
         .tooltip-mapped-data {
+            line-height: 0%;
             position: absolute;
             text-align: center;
-            padding: .5rem;
-            background: #FFFFFF;
-            color: #313639;
-            border: 1px solid #313639;
-            border-radius: 8px;
+            margin-left: 10px;
+            padding-left: 3px;
+            padding-right: 3px;
+            background: #495057;
+            color: #fff; 
+            border: 1px solid #495057;
+            border-radius: 3px;
             pointer-events: none;
-            font-size: 0.8rem;
+            font-size: 1.25rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle box shadow for depth */
+            transition: opacity 0.3s ease-in-out; /* Smooth opacity transition */
+            opacity: 0.9;
         }
 
         .axis text,
@@ -35,7 +41,55 @@
             font-size: 22px;
             font-weight: bold;
         }
+
+        /* Style for the bottom controls container */
+        #bottom-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: auto; /* Adjust the height as needed */
+            background-color: #f0f0f0; /* Set a background color if desired */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Style for the details view container */
+        #details-view {
+            flex: 1; /* Take up remaining vertical space */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Style for the mouseover and selected components within details view */
+        #details-view-mouseover,
+        #details-view-selected {
+            /* Add common styling for details view components here */
+            padding: 10px;
+            border-bottom: 1px solid #ccc; /* Example border for separation */
+        }
+
+        /* Style for the slider range */
+        #slider-range {
+            /* Add styling for the slider range here */
+            height: auto; /* Adjust the height as needed */
+            background-color: #e0e0e0; /* Example background color for the slider */
+            flex: 2; /* Take up remaining vertical space */
+            display: flex;
+            flex-direction: column;
+        }
     </style>
+
+    <div id="map"></div>
+
+    
+    <div id="chart-container"></div>
+    <div id="bottom-controls">
+        <div id="details-view">
+            <div id="details-view-mouseover"></div>
+        </div>
+        <div id="slider-range"></div>
+    </div>
 
     <script>
         // DATA SOURCES:
@@ -55,6 +109,7 @@
         //  -> Show county boundaries
         //  -> Search for constituency
         //  -> Constituency list
+        //  -> Show / hide parties
         // 
 
         const container = d3.select("#chart-container");
@@ -172,21 +227,27 @@
             svg.selectAll("path").remove();
         }
 
-        var tooltipDiv = d3.select("body").append("div")
+        const tooltipDiv = d3.select("body").append("div")
             .attr("class", "tooltip-mapped-data")
             .style("visibility", "hidden")
             .style("z-index", "0");
 
+        const mouseoverDetailsView = d3.select("#details-view-mouseover")
+            .style("visibility", "hidden")
+            .style("z-index", "0");
+
         function generateTooltipContents(feature, itemData) {
-            tooltipDiv.html("")
-            
+            tooltipDiv.html("");
+            mouseoverDetailsView.html("");
+
             tooltipDiv.append("p").text(itemData.title);
+
             const pie = d3.pie()
                 .value(function (d) { return d.score; } );
             const dataReady = pie(itemData.pieData);
-            var width = 100;
-            var height = 100;
-            const div = tooltipDiv.append("svg")
+            var width = 150;
+            var height = 150;
+            const div = mouseoverDetailsView.append("svg")
                 .style("width", width + "px")
                 .style("height", height + "px")
                 .append("g")
@@ -212,7 +273,8 @@
                         .attr("stroke-width", "1px");
 
                     tooltipDiv.style("visibility", "visible");
-                    tooltipDiv.append(generateTooltipContents(feature, dataSetCachedData.features[feature.id]));
+                    mouseoverDetailsView.style("visibility", "visible");
+                    generateTooltipContents(feature, dataSetCachedData.features[feature.id]);
                 })
                 .on('mousemove', function (d, feature) {
                     tooltipDiv
@@ -228,6 +290,7 @@
                         .attr("stroke-width", "0.1px");
 
                     tooltipDiv.style("visibility", "hidden");
+                    mouseoverDetailsView.style("visibility", "hidden");
                 });
         }
 
@@ -427,11 +490,7 @@
             const gRange = d3
                 .select('#slider-range')
                 .append('svg')
-                .attr('width', '100%')
-                .style('background-color', 'white')
-                .attr('height', '90')
-                .style('position', 'fixed')
-                .style('bottom', 0)
+                .attr('height', '90px')
                 .append('g')
                 .attr('transform', 'translate(30,30)');
 
