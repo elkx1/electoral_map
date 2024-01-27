@@ -408,9 +408,9 @@
             if (feature) {
                 var path = d3.select("#path" + feature.id)
                 styleFeaturePath(path, feature);
+                
+                generateTooltipContents(feature, dataSetCachedData.features[feature.id]);
             }
-
-            generateTooltipContents(feature, dataSetCachedData.features[feature.id]);
         }
 
         function styleFeaturePath(path, feature) {
@@ -593,10 +593,13 @@
                     // Otherwise the Isle of Wight disappears
                     return poly;
                 }
-                var dicts = polygonArraysToDicts(poly);
-                var simplified = simplify(dicts, 0.001, true);
-                var arrays = polygonDictsToArrays(simplified);
-                return arrays;
+                // var dicts = polygonArraysToDicts(poly);
+                // var simplified = simplify(dicts, 0.001, true);
+                // var arrays = polygonDictsToArrays(simplified);
+                // return arrays;
+
+                // todo
+                return poly;
             }
 
             // todo should do different things for multipolygon vs polygon
@@ -688,13 +691,13 @@
             })
         }
 
-        mapGeoJSONFileName = "../data/topo_westminster_parliamentary_constituencies_2014.json";
+        mapGeoJSONFileName = "data/topo_westminster_parliamentary_constituencies_2014.json";
         electionFiles = [
-            {"id": "2005", "filename": "../data/electdata_2005nb.txt"},
-            {"id": "2010", "filename": "../data/electdata_2010ug.txt"},
-            {"id": "2015", "filename": "../data/electdata_2015.txt"},
-            {"id": "2017", "filename": "../data/electdata_2017.txt"},
-            {"id": "2019", "filename": "../data/electdata_2019.txt"},
+            {"id": "2005", "filename": "data/electdata_2005nb.txt"},
+            {"id": "2010", "filename": "data/electdata_2010ug.txt"},
+            {"id": "2015", "filename": "data/electdata_2015.txt"},
+            {"id": "2017", "filename": "data/electdata_2017.txt"},
+            {"id": "2019", "filename": "data/electdata_2019.txt"},
         ];
         
         promises = [];

@@ -18,8 +18,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     runs-on: ubuntu-latest
-    outputs:
-      dist: 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
