@@ -29,6 +29,12 @@
             pointer-events: none;
             font-size: 0.8rem;
         }
+
+        .axis text,
+        .slider text {
+            font-size: 22px;
+            font-weight: bold;
+        }
     </style>
 
     <script>
@@ -57,12 +63,13 @@
 
         const zoom = d3.zoom().scaleExtent([1, 16]).on("zoom", zoomed);
 
-        const svg = d3.select("#chart-container")
-            .append("svg")
-            .attr("width", width)
-            .attr("height", height);
-
+        const container = d3.select("#chart-container");
+        const svg = container.append("svg");
         const g = svg.append("g");
+
+        // Resizing logic
+        container.style('width', '100%').style('height', '95vh').style('display', 'flex');
+        svg.style('flex', '1');
 
         function zoomed(event) {
             const {transform} = event;
@@ -73,8 +80,8 @@
 
         // Projection using geoMercator
         const projection = d3.geoMercator()
-            .scale(4000)
-            .center([-4.5, 54.3]);
+            .scale(5800)
+            .center([-2.5, 54.5]);
 
         // Create a GeoPath generator
         const path = d3.geoPath().projection(projection);
@@ -230,6 +237,9 @@
         }
 
         function drawMappedData(features, dataSetCachedData) {
+            // svg.attr('width', parentDiv.clientWidth)
+            //     .attr('height', parentDiv.clientWidth);
+
             // Render the map
             var node = g.selectAll(".map-poly")
                 .data(features)
@@ -415,7 +425,7 @@
             const sliderRange = d3.sliderBottom()
                 .min(0)
                 .max(numDataSets - 1)
-                .width(300)
+                .width(500)
                 .ticks(numDataSets)
                 .default(initialDataSet)
                 .step(1)
@@ -425,10 +435,12 @@
             const gRange = d3
                 .select('#slider-range')
                 .append('svg')
-                .attr('width', 500)
-                .attr('height', 100)
+                .attr('width', '100%')
+                .style('background-color', 'white')
+                .attr('height', '80')
+                .style('margin-top', '-60')
                 .append('g')
-                .attr('transform', 'translate(90,30)');
+                .attr('transform', 'translate(30,30)');
 
             gRange.call(sliderRange);
 
