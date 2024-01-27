@@ -1,4 +1,3 @@
-// const electionDataModule = require('../src/js/electionDataModule.js');
 import { ElectionResults } from "../src/js/electionDataModule";
 
 // Sample election data

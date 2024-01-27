@@ -23,21 +23,30 @@ describe('Map and MapRegion classes', () => {
     });
 
     test('should have an array of MapRegion instances in Map class', () => {
-        const regions = map.regions;
+        const regions = map.getRegions();
         expect(regions).toBeInstanceOf(Array);
         expect(regions.length).toBeGreaterThan(0);
         expect(regions[0]).toBeInstanceOf(MapRegion);
     });
 
     test('should have correct name in MapRegion class', () => {
-        expect(map.regions[0].name()).toBe('Aldershot');
-        expect(map.regions[1].name()).toBe('Aldridge-Brownhills');
-        expect(map.regions.length).toBe(533);
+        expect(map.getRegions()[0].name()).toBe('Aldershot');
+        expect(map.getRegions()[1].name()).toBe('Aldridge-Brownhills');
+        expect(map.getRegions().length).toBe(533);
     });
 
     test('should have non-empty polygons', () => {
-        for (const region of map.regions) {
+        for (const region of map.getRegions()) {
             expect(region.area()).toBeGreaterThan(0.0);
+        }
+    });
+
+    test('regions should have ids matching topojson', () => {
+        for (var i = 0; i < map.getTopoJSONFeatures().length; ++i) {
+            let region = map.getRegions()[i];
+            expect(region.id()).toBe(map.getTopoJSONFeatures()[i].id);
+
+            expect(map.getRegionByGeoJSONID(map.getTopoJSONFeatures()[i].id)).toBe(region);
         }
     });
 });

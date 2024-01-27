@@ -167,6 +167,10 @@ class MapRegion {
       return singleArea(this._geoJSONFeature.geometry.coordinates);
     }
   }
+
+  id() {
+    return this._geoJSONFeature.id;
+  }
 }
 
 class Map {
@@ -174,14 +178,27 @@ class Map {
     this.date = date;
 
     const mapFeatures = topojson.feature(geoJSON, geoJSON.objects.wpc).features;
-    this.regions = [];
+    this._topoJSONFeatures = mapFeatures;
+    this._regions = [];
     for (const feature of mapFeatures) {
-      this.regions.push(new MapRegion(feature));
+      this._regions[feature.id] = new MapRegion(feature);
     }
   }
 
+  getTopoJSONFeatures() {
+    return this._topoJSONFeatures;
+  }
+  
+  getRegions() { 
+    return Object.values(this._regions)
+  }
+
   getRegionNames() {
-    return this.regions.map(region => region.name());
+    return this.getRegions().map(region => region.name());
+  }
+
+  getRegionByGeoJSONID(id) {
+    return this._regions[id];
   }
 }
 

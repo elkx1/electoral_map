@@ -4,7 +4,6 @@
 <head>
     <title>Election Results Visualization</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://d3js.org/topojson.v1.min.js"></script>
     <script src="https://unpkg.com/d3-simple-slider"></script>
 
     <script src="bundle.js"/>
@@ -166,75 +165,6 @@
         // Create a GeoPath generator
         const path = d3.geoPath().projection(projection);
 
-        // Alias mapping between constituency names in election data and GeoJSON data
-        const aliasMapping = {
-            // "ElectionName": "GeoJSONName",
-            // Add more aliases as needed
-
-            // "Ashton under Lyne": "Ashton-under-Lyne",
-            // "Surrey South West": "South West Surrey",
-            "Kingston upon Hull West and Hessle": "Hull West and Hessle",
-            "Kingston upon Hull East": "Hull East",
-            "Kingston upon Hull North": "Hull North",
-            "South Basildon and East Thurrock": "Basildon South and East Thurrock",
-            "Richmond (Yorks)": "Richmond",
-        };
-
-        function getAliasMappings(name) {
-            aliases = [name.replaceAll("-", " ").replaceAll(",", "")];
-
-            if (name in aliasMapping) {
-                aliases.push(aliasMapping[name]);
-            }
-
-            const swappedEndings = [
-                { "name": "North West", "has_comma": false },
-                { "name": "North East", "has_comma": false },
-                { "name": "South East", "has_comma": false },
-                { "name": "South West", "has_comma": false },
-                { "name": "Central", "has_comma": false },
-                { "name": "North", "has_comma": false },
-                { "name": "East", "has_comma": false },
-                { "name": "South", "has_comma": false },
-                { "name": "West", "has_comma": false },
-                { "name": "Mid", "has_comma": false }, // Pretty mid
-                { "name": "City of", "has_comma": true },
-                { "name": "The", "has_comma": true },
-            ];
-
-            function swapEndings(namePart) {
-                let foundAlias = null;
-                for (const special of swappedEndings) {
-                    specialName = special["name"]
-                    if (namePart.startsWith(specialName + " ")) {
-                        foundAlias = namePart.substring(specialName.length + 1, namePart.length) + (special["has_comma"] ? "," : "") + " " + specialName;
-                        break;
-                    }
-                }
-                return foundAlias;
-            }
-
-            if (name.includes("and")) {
-                let partAliases = [];
-                for (const part of name.split(" and ")) {
-                    let swapped = swapEndings(part);
-                    if (swapped == null) {
-                        partAliases.push(part);
-                    }
-                    else {
-                        partAliases.push(swapped);
-                    }
-                }
-                aliases.push(partAliases.join(" and "));
-                aliases.push(partAliases.reverse().join(" and "));
-            }
-            else {
-                aliases.push(swapEndings(name))
-            }
-
-            return aliases;
-        }
-
         // Define colors for parties
         const partyColors = {
             "CON": "blue",
@@ -281,12 +211,15 @@
                 .style("position", "absolute");
         }
 
-        function drawResultsDetailsChart(parent, itemData) {
+        function drawResultsDetailsChart(parent, region, map, electionResults, aliasMap) {
             parent.html("");
+
+            let electionRegionName = aliasMap.getElectionDataRegionNameByMapRegionName(region.name());
+            let pieData = electionResults.getVotePercentages(electionRegionName);
 
             const pie = d3.pie()
                 .value(function (d) { return d.score; } );
-            const dataReady = pie(itemData.pieData);
+            const dataReady = pie(pieData);
 
             var width = 280;
             var height = 180;
@@ -301,7 +234,7 @@
                 .attr("text-anchor", "middle")  
                 .style("font-size", "16px") 
                 .style("text-decoration", "underline")  
-                .text(itemData.title);
+                .text(region.name());
             
             const g = svg
                 .append("g")
@@ -339,83 +272,81 @@
                 .attr("x", 11);
         }
 
-        function generateTooltipContents(feature, itemData) {
+        function generateTooltipContents(region, map, electionResults, aliasMap) {
+            console.log(region);
             tooltipDiv.html("");
 
-            tooltipDiv.append("p").text(itemData.title);
+            tooltipDiv.append("p").text(region.name());
 
-            drawResultsDetailsChart(mouseoverDetailsView, itemData);
+            drawResultsDetailsChart(mouseoverDetailsView, region, map, electionResults, aliasMap);
         }
 
-        var selectedFeature = null;
-        var selectedFeatureDataSetCachedData = null;
-        var hoveredFeature = null;
-        var hoveredFeatureDataSetCachedData = null;
-        function setSelectedFeature(dataSetCachedData, feature) {
-            var oldSelectedFeature = selectedFeature;
+        var selectedRegion = null;
+        var hoveredRegion = null;
+        function setSelectedRegion(region, map, electionResults, aliasMap) {
+            var oldSelectedRegion = selectedRegion;
 
-            selectedFeature = feature;
-            selectedFeatureDataSetCachedData = dataSetCachedData;
-            drawResultsDetailsChart(selectedDetailsView, dataSetCachedData.features[feature.id]);
+            selectedRegion = region;
+            drawResultsDetailsChart(selectedDetailsView, region, map, electionResults, aliasMap);
 
-            if (oldSelectedFeature) {
-                var oldPath = d3.select("#path" + oldSelectedFeature.id)
+            if (oldSelectedRegion) {
+                var oldPath = d3.select("#path" + oldSelectedRegion.id())
                     .attr("clip-path", function (d) { return "url(#clip" + d.id + ")"; });
-                styleFeaturePath(oldPath, oldSelectedFeature);
+                styleRegionPath(oldPath, oldSelectedRegion);
             }
 
-            var path = d3.select("#path" + selectedFeature.id);
+            var path = d3.select("#path" + selectedRegion.id());
             path.attr("clip-path", null);
             var pathG = path.select(function() { return this.parentNode; });
             pathG.raise();
 
-            styleFeaturePath(path, feature);
+            styleRegionPath(path, region);
         }
 
-        function isSelectedFeature(feature) {
-            if (selectedFeature == null) {
-                return feature == null;
+        function isSelectedRegion(region) {
+            if (selectedRegion == null) {
+                return region == null;
             }
 
-            if (feature == null) {
+            if (region == null) {
                 return false;
             }
 
-            return feature.id == selectedFeature.id;
+            return region.id() == selectedRegion.id();
         }
 
-        function isHoveredFeature(feature) {
-            if (hoveredFeature == null) {
-                return feature == null;
+        function isHoveredRegion(region) {
+            if (hoveredRegion == null) {
+                return region == null;
             }
 
-            if (feature == null) {
+            if (region == null) {
                 return false;
             }
 
-            return feature.id == hoveredFeature.id;
+            return region.id() == hoveredRegion.id();
         }
 
-        function setHoveredFeature(dataSetCachedData, feature) {
-            var oldHoveredFeature = hoveredFeature;
-            hoveredFeature = feature;
+        function setHoveredRegion(region, map, electionResults, aliasMap) {
+            var oldHoveredRegion = hoveredRegion;
+            hoveredRegion = region;
 
-            if (oldHoveredFeature) {
-                var oldPath = d3.select("#path" + oldHoveredFeature.id)
-                styleFeaturePath(oldPath, oldHoveredFeature);
+            if (oldHoveredRegion) {
+                var oldPath = d3.select("#path" + oldHoveredRegion.id())
+                styleRegionPath(oldPath, oldHoveredRegion);
             }
 
-            if (feature) {
-                var path = d3.select("#path" + feature.id)
-                styleFeaturePath(path, feature);
+            if (region) {
+                var path = d3.select("#path" + region.id())
+                styleRegionPath(path, region);
 
-                generateTooltipContents(feature, dataSetCachedData.features[feature.id]);
+                generateTooltipContents(region, map, electionResults, aliasMap);
             }
         }
 
-        function styleFeaturePath(path, feature) {
-            var isSelected = isSelectedFeature(feature);
-            var isHovered = isHoveredFeature(feature);
+        function styleRegionPath(path, feature) {
+            var isSelected = isSelectedRegion(feature);
+            var isHovered = isHoveredRegion(feature);
             if (isSelected || isHovered) {
                 path.transition()
                     .duration('50')
@@ -432,21 +363,25 @@
             }
         }
 
-        function setMappedData(features, dataSetCachedData) {
-            if (hoveredFeature) {
-                generateTooltipContents(hoveredFeature, dataSetCachedData.features[hoveredFeature.id]);
+        function setMappedData(map, electionResults, aliasMap) {
+            if (hoveredRegion) {
+                generateTooltipContents(hoveredRegion, map, electionResults, aliasMap);
             }
 
-            if (selectedFeature) {
-                setSelectedFeature(dataSetCachedData, selectedFeature);
+            if (selectedRegion) {
+                setSelectedRegion(selectedRegion, map, electionResults, aliasMap);
             }
 
             g.selectAll(".map-path")
                 .attr("fill", function (d) {
-                    return dataSetCachedData.features[d.id].fill;
+                    let region = map.getRegionByGeoJSONID(d.id);
+                    let electionRegionName = aliasMap.getElectionDataRegionNameByMapRegionName(region.name());
+                    let winningParty = electionResults.getWinningParty(electionRegionName);
+                    return getPartyColor(winningParty);
                 })
                 .on('mouseover', function (d, feature) {
-                    setHoveredFeature(dataSetCachedData, feature);
+                    let region = map.getRegionByGeoJSONID(feature.id);
+                    setHoveredRegion(region, map, electionResults, aliasMap);
                     tooltipDiv.style("visibility", "visible");
                     
                     // Don't show the mouse hover details on a mobile browser;
@@ -461,17 +396,18 @@
                     tooltipDiv.style("visibility", "hidden");
                     mouseoverDetailsView.style("visibility", "hidden");
 
-                    setHoveredFeature(dataSetCachedData, null);
+                    setHoveredRegion(null, map, electionResults, aliasMap);
                 })
                 .on('click', function (d, feature) {
-                    setSelectedFeature(dataSetCachedData, feature);
+                    let region = map.getRegionByGeoJSONID(feature.id);
+                    setSelectedRegion(region, map, electionResults, aliasMap);
                 });
         }
 
-        function drawMappedData(features, dataSetCachedData) {
+        function drawElectionResultsMap(map, electionResults, aliasMap) {
             // Render the map
             var node = g.selectAll(".map-poly")
-                .data(features)
+                .data(map.getTopoJSONFeatures())
                 .attr("class", "map-poly")
                 .enter()
                 .append("g");
@@ -485,188 +421,20 @@
                 .attr("class", "map-path")
                 .attr("d", path)
                 .attr("id", d => "path" + d.id)
-                .attr("fill", function (d) {
-                    return dataSetCachedData.features[d.id].fill;
-                })
                 .attr("stroke", "black")
                 .attr("stroke-width", "0.1px")
                 .attr("clip-path", function (d) { return "url(#clip" + d.id + ")"; });
 
-            setMappedData(features, dataSetCachedData);
+            setMappedData(map, electionResults, aliasMap);
         };
 
-        function computeDataSetCachedData(dataSet) {
-            // Extract parties from the CSV header row
-            const parties = dataSet.columns.filter(col => col !== 'Name' && col !== 'MP' && col !== 'Area' && col !== 'County' && col !== 'Electorate');
+        function onDataLoaded(mapGeoJSON, electionsResults) {
+            let mapDate = new Date('1900-01-01'); // todo load this into a Timeline
+            let map = new electionData.Map(mapDate, mapGeoJSON);
 
-            // Create a map of constituency names to winning parties
-            const winningParties = {};
-            const votesByConstituencyName = {};
-            const votesPercentByConstituencyName = {};
-            dataSet.forEach(result => {
-                const constituency = result.Name;
-                const partyScores = parties.map(party => ({ party, score: parseInt(result[party]) }));
+            let aliasMap = new electionData.RegionNameAliasMap([map], electionsResults);
 
-                const winningParty = partyScores.reduce((prev, current) => (prev.score > current.score ? prev : current)).party;
-                winningParties[constituency] = winningParty;
-
-                votesByConstituencyName[constituency] = partyScores;
-
-                const votesTotal = partyScores.reduce((a, b) => a + b.score, 0);
-
-                votesPercent = partyScores.map(function (v) {
-                    return {"party": v.party, "score": v.score / votesTotal * 100};
-                });
-                votesPercentByConstituencyName[constituency] = votesPercent;
-                
-                // console.log("Winnning party for " + constituency + ": " + winningParty)
-            });
-
-            return {
-                "winningParties": winningParties, 
-                "votesByConstituencyName": votesByConstituencyName,
-                "votesPercentByConstituencyName": votesPercentByConstituencyName,
-            };
-        }
-
-        function computeFeatureData(feature, mappedDataSet, dataSetCachedData) {
-            // Adjust for the particular property name in the topojson file
-            const constituencyName = feature.properties.PCON13NM;
-            
-            let matchingName = null;
-
-            // Check if the constituency name exists in election data
-            if (constituencyName in dataSetCachedData.winningParties) {
-                matchingName = constituencyName;
-            } else {
-                // Check aliases
-                var aliases = getAliasMappings(constituencyName)
-                // console.log("aliases for " + constituencyName + ": " + aliases)
-                aliases.forEach(alias => {
-                    if (alias in dataSetCachedData.winningParties) {
-                        matchingName = alias;
-                    }
-                })
-            }
-
-            if (matchingName == null) {
-                console.log("No match found for constituency name " + constituencyName);
-                return "black";
-            }
-
-            const winningParty = dataSetCachedData.winningParties[matchingName];
-            return {
-                "title": constituencyName,
-                "fill": getPartyColor(winningParty),
-                "pieData": dataSetCachedData.votesPercentByConstituencyName[matchingName],
-            };
-        }
-
-        function filterBadPolygons(feature) {
-            function isValid(poly) {
-                return !(poly.length <= 4 && poly[0] == poly[poly.length - 1]);
-            }
-            
-            if (feature.geometry.type == "MultiPolygon") {
-                const minPolygonArea = 1e-5;
-                feature.geometry.coordinates = feature.geometry.coordinates.map(polyList => polyList.filter(poly => d3.polygonArea(poly) > minPolygonArea));
-            }
-        }
-
-        function simplifyMapFeature(feature) {
-            filterBadPolygons(feature);
-            // Simplifying the geometry of the map features improves render performance
-
-            // todo rewrite the simplify library using my own impl of Douglas-Peucker, so we don't have
-            // to swizzle this data like this
-
-            function polygonArraysToDicts(poly) {
-                return poly.map(function (point) { return {x: point[0], y: point[1]}; });
-            }
-
-            function polygonDictsToArrays(poly) {
-                return poly.map(function (point) { return [point.x, point.y]; });
-            }
-
-            function simplifyPolygon(poly) {
-                if (poly.length <= 4) {
-                    // Otherwise the Isle of Wight disappears
-                    return poly;
-                }
-                // var dicts = polygonArraysToDicts(poly);
-                // var simplified = simplify(dicts, 0.001, true);
-                // var arrays = polygonDictsToArrays(simplified);
-                // return arrays;
-
-                // todo
-                return poly;
-            }
-
-            // todo should do different things for multipolygon vs polygon
-            if (feature.geometry.type == "MultiPolygon") {
-                feature.geometry.coordinates = feature.geometry.coordinates.map(polyList => polyList.map(simplifyPolygon));
-                // feature.geometry.coordinates = [];
-            }
-            else if (feature.geometry.type == "Polygon") {
-                feature.geometry.coordinates = feature.geometry.coordinates.map(simplifyPolygon);
-            }
-            else {
-                throw new Error("Unsupported geometry '" + feature.geometry.type + "'");
-            }
-        }
-
-        function simplifyMapFeaturesOld(mapFeatures) {
-            // Filter out invalid geometries
-            for (feature of mapFeatures) {
-                simplifyMapFeature(feature);
-            }
-            return mapFeatures;
-        }
-
-        function simplifyMapFeatures(mapFeatures) {
-            // Filter out invalid geometries
-            for (feature of mapFeatures) {
-                filterBadPolygons(feature);
-            }
-
-            var featureCollection = {
-                type: "FeatureCollection",
-                features: mapFeatures
-            };
-
-            // Buffer the point by 10 units
-            var buffered = turf.buffer(featureCollection, 0, { units: 'meters' });
-            
-            // return buffered.features;
-            // Simplify the buffered geometry
-            // var simplified = turf.simplify(featureCollection, { tolerance: 0.001, highQuality: false });
-            // return simplified.features
-
-            // return buffered.features;
-        }
-
-        function onDataLoaded(mapGeoJSON, mappedDataSetConfigs, mappedDataSets) {
-            // The things we want to draw
-            mapFeatures = topojson.feature(mapGeoJSON, mapGeoJSON.objects.wpc).features
-            mapFeatures = simplifyMapFeaturesOld(mapFeatures);
-
-            let map = new electionData.Map(new Date('2014-01-01'), mapGeoJSON);
-            for (const region of map.regions) {
-                console.log(region.name());
-            }
-            // Cache the drawing information
-            allDataSetsCachedData = [];
-            for (const dataSet of mappedDataSets) {
-                dataSetCachedData = {};
-                dataSetCachedData.root = computeDataSetCachedData(dataSet);
-                dataSetCachedData.features = {};
-                for (const feature of mapFeatures) {
-                    dataSetCachedData.features[feature.id] = computeFeatureData(feature, dataSet, dataSetCachedData.root);
-                }
-                allDataSetsCachedData.push(dataSetCachedData);
-            }
-
-            numDataSets = mappedDataSets.length
+            numDataSets = electionsResults.length
             initialDataSet = numDataSets - 1
             const sliderRange = d3.sliderBottom()
                 .min(0)
@@ -676,7 +444,7 @@
                 .default(initialDataSet)
                 .step(1)
                 .fill('#85bb65')
-                .tickFormat(function (tick) { return mappedDataSetConfigs[tick].id; });
+                .tickFormat(tick => electionsResults[tick].date.getFullYear());
             
             const gRange = d3
                 .select('#slider-range')
@@ -687,36 +455,35 @@
 
             gRange.call(sliderRange);
 
-            drawMappedData(mapFeatures, allDataSetsCachedData[initialDataSet]);
+            drawElectionResultsMap(map, electionsResults[initialDataSet], aliasMap);
 
             sliderRange.on('onchange', val => {
                 console.log("onchange", electionFiles[val].filename);
-                setMappedData(mapFeatures, allDataSetsCachedData[val]);
+                setMappedData(map, electionsResults[val], aliasMap);
             })
         }
 
         mapGeoJSONFileName = "data/topo_westminster_parliamentary_constituencies_2014.json";
         electionFiles = [
-            {"id": "2005", "filename": "data/electdata_2005nb.txt"},
-            {"id": "2010", "filename": "data/electdata_2010ug.txt"},
-            {"id": "2015", "filename": "data/electdata_2015.txt"},
-            {"id": "2017", "filename": "data/electdata_2017.txt"},
-            {"id": "2019", "filename": "data/electdata_2019.txt"},
+            {date: new Date("2005-01-01"), filename: "data/electdata_2005nb.txt"},
+            {date: new Date("2010-01-01"), filename: "data/electdata_2010ug.txt"},
+            {date: new Date("2015-01-01"), filename: "data/electdata_2015.txt"},
+            {date: new Date("2017-01-01"), filename: "data/electdata_2017.txt"},
+            {date: new Date("2019-01-01"), filename: "data/electdata_2019.txt"},
         ];
         
         promises = [];
         promises.push(d3.json(mapGeoJSONFileName));
         for (const electionFile of electionFiles) {
-            promises.push(d3.dsv(";", electionFile.filename));
+            promises.push(d3.dsv(";", electionFile.filename).then(data => new electionData.ElectionResults(electionFile.date, data)));
         }
 
         Promise.all(promises).then(
             function (results) {
                 mapGeoJSON = results[0];
-                electionFilesData = results.slice(1);
+                electionsResults = results.slice(1);
 
-                console.log(electionFilesData);
-                onDataLoaded(mapGeoJSON, electionFiles, electionFilesData);
+                onDataLoaded(mapGeoJSON, electionsResults);
             }
         )
     </script>
