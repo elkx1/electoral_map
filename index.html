@@ -237,9 +237,6 @@
         }
 
         function drawMappedData(features, dataSetCachedData) {
-            // svg.attr('width', parentDiv.clientWidth)
-            //     .attr('height', parentDiv.clientWidth);
-
             // Render the map
             var node = g.selectAll(".map-poly")
                 .data(features)
@@ -437,8 +434,8 @@
                 .append('svg')
                 .attr('width', '100%')
                 .style('background-color', 'white')
-                .attr('height', '80')
-                .style('margin-top', '-60')
+                .attr('height', '100')
+                .style('margin-top', '-100')
                 .append('g')
                 .attr('transform', 'translate(30,30)');
 
