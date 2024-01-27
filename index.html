@@ -272,12 +272,19 @@
                 .attr("fill", function(d) { return getPartyColor(d.data.party); });
         }
 
+        var currentMouseOverFeature = null;
         function setMappedData(features, dataSetCachedData) {
+            if (currentMouseOverFeature) {
+                generateTooltipContents(currentMouseOverFeature, dataSetCachedData.features[currentMouseOverFeature.id]);
+            }
+
             g.selectAll(".map-path")
                 .attr("fill", function (d) {
                     return dataSetCachedData.features[d.id].fill;
                 })
                 .on('mouseover', function (d, feature) {
+                    currentMouseOverFeature = feature;
+
                     d3.select(this).transition()
                         .duration('50')
                         .attr('opacity', '.45')
