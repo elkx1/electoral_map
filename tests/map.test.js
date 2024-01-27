@@ -1,7 +1,10 @@
-const electionDataModule = require('../src/js/electionDataModule.js');
+import { Map, MapRegion } from '../src/js/electionDataModule.js';
+import * as fs from 'fs'
+import * as path from 'path'
+import { fileURLToPath } from 'url';
 
-const fs = require('fs');
-const path = require('path');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load GeoJSON from file
 const geoJSONFilePath = path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_2014.json');
@@ -12,7 +15,7 @@ describe('Map and MapRegion classes', () => {
     let map;
 
     beforeAll(() => {
-        map = new electionDataModule.Map(2022, geoJSON);
+        map = new Map(2022, geoJSON);
     });
 
     test('should have correct date in Map class', () => {
@@ -23,7 +26,7 @@ describe('Map and MapRegion classes', () => {
         const regions = map.regions;
         expect(regions).toBeInstanceOf(Array);
         expect(regions.length).toBeGreaterThan(0);
-        expect(regions[0]).toBeInstanceOf(electionDataModule.MapRegion);
+        expect(regions[0]).toBeInstanceOf(MapRegion);
     });
 
     test('should have correct name in MapRegion class', () => {

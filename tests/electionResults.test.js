@@ -1,4 +1,5 @@
-const electionDataModule = require('../src/js/electionDataModule.js');
+// const electionDataModule = require('../src/js/electionDataModule.js');
+import { ElectionResults } from "../src/js/electionDataModule";
 
 // Sample election data
 const sampleData = [
@@ -13,7 +14,7 @@ describe('ElectionData', () => {
   let electionData;
 
   beforeAll(() => {
-    electionData = new electionDataModule.ElectionResults(2015, sampleData);
+    electionData = new ElectionResults(2015, sampleData);
   });
 
   test('should return an array of party names', () => {

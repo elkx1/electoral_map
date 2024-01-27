@@ -1,5 +1,5 @@
-const topojson = require('topojson-client');
-const simplify = require('./simplify/simplify.js');
+import * as topojson from 'topojson-client'
+import simplify from './simplify/simplify.js';
 
 class ElectionResults {
   constructor(date, results) {
@@ -358,10 +358,4 @@ class RegionNameAliasMap {
   }
 }
 
-module.exports = {
-  ElectionResults: ElectionResults,
-  MapRegion: MapRegion,
-  Map: Map,
-  Timeline: Timeline,
-  RegionNameAliasMap: RegionNameAliasMap,
-};
+export { ElectionResults, MapRegion, Map, Timeline, RegionNameAliasMap };

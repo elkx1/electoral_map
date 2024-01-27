@@ -408,7 +408,7 @@
             if (feature) {
                 var path = d3.select("#path" + feature.id)
                 styleFeaturePath(path, feature);
-                
+
                 generateTooltipContents(feature, dataSetCachedData.features[feature.id]);
             }
         }
@@ -650,6 +650,10 @@
             mapFeatures = topojson.feature(mapGeoJSON, mapGeoJSON.objects.wpc).features
             mapFeatures = simplifyMapFeaturesOld(mapFeatures);
 
+            let map = new electionData.Map(new Date('2014-01-01'), mapGeoJSON);
+            for (const region of map.regions) {
+                console.log(region.name());
+            }
             // Cache the drawing information
             allDataSetsCachedData = [];
             for (const dataSet of mappedDataSets) {

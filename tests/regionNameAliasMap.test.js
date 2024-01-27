@@ -1,7 +1,10 @@
-const electionDataModule = require('../src/js/electionDataModule.js');
+import { RegionNameAliasMap, ElectionResults, Map } from '../src/js/electionDataModule.js';
+import * as fs from 'fs'
+import * as path from 'path'
+import { fileURLToPath } from 'url';
 
-const fs = require('fs');
-const path = require('path');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const geoJSONDataSets = [
     { date: new Date("2014-01-01"), path: path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_2014.json') },
@@ -23,20 +26,20 @@ describe('Map and MapRegion classes', () => {
             var promise = fs.promises
                 .readFile(dataSet.path)
                 .then(json => JSON.parse(json.toString()))
-                .then(obj => mapData.push(new electionDataModule.Map(dataSet.date, obj)));
+                .then(obj => mapData.push(new Map(dataSet.date, obj)));
             promises.push(promise);
         }
 
         for (const dataSet of electionResultsDataSets) {
             var promise = fs.promises
                 .readFile(dataSet.path)
-                .then(data => electionResultsData.push(electionDataModule.ElectionResults.parse(dataSet.date, new String(data))));
+                .then(data => electionResultsData.push(ElectionResults.parse(dataSet.date, new String(data))));
             promises.push(promise);
         }
 
         await Promise.all(promises);
 
-        regionNameAliasMap = new electionDataModule.RegionNameAliasMap(mapData, electionResultsData);
+        regionNameAliasMap = new RegionNameAliasMap(mapData, electionResultsData);
     });
 
     test('all loaded regions should have a bidirectional mapping', () => {

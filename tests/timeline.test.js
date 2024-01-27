@@ -1,10 +1,10 @@
-const electionDataModule = require('../src/js/electionDataModule.js');
+import { Timeline } from "../src/js/electionDataModule";
 
 describe('Timeline class', () => {
   let timeline;
 
   beforeEach(() => {
-    timeline = new electionDataModule.Timeline();
+    timeline = new Timeline();
   });
 
   test('should add objects to the timeline in a monotonic order', () => {
