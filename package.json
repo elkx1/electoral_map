@@ -1,0 +1,15 @@
+{
+    "name": "electoral_map",
+    "version": "0.0.1",
+    "description": "UK electoral map visualizer",
+    "scripts": {
+        "test": "jest",
+        "build": "your_build_command_here"
+    },
+    "devDependencies": {
+        "d3": "^7.8.5",
+        "jest": "^27.5.1",
+        "topojson": "^3.0.2",
+        "topojson-client": "^3.1.0"
+    }
+}
