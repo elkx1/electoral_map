@@ -64,7 +64,9 @@
         #details-view {
             flex: 1; /* Take up remaining vertical space */
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
+            border-bottom: 1px solid #ccc;
+            border-top: 1px solid #ccc;
         }
 
         /* Style for the mouseover and selected components within details view */
@@ -72,7 +74,16 @@
         #details-view-selected {
             /* Add common styling for details view components here */
             padding: 10px;
-            border-bottom: 1px solid #ccc; /* Example border for separation */
+        }
+
+        #details-view-mouseover {
+            display: flex;
+            flex: 1;
+        }
+
+        #details-view-selected {
+            display: flex;
+            flex: 2;
         }
 
         /* Style for the slider range */
@@ -93,6 +104,7 @@
     <div id="bottom-controls">
         <div id="details-view">
             <div id="details-view-mouseover"></div>
+            <div id="details-view-selected"></div>
         </div>
         <div id="slider-range"></div>
     </div>
@@ -243,6 +255,10 @@
             .style("visibility", "hidden")
             .style("z-index", "0");
 
+        const selectedDetailsView = d3.select("#details-view-selected")
+            .style("visibility", "visible") // todo should be hidden to start
+            .style("z-index", "0");
+
         function updateTooltipPosition(mouseEvent) {
             // This is horrible code; we should really have a MVC architecture
             // But that also would require splitting this thing into something much bigger.
@@ -262,15 +278,23 @@
             const dataReady = pie(itemData.pieData);
 
             var width = 280;
-            var height = 150;
-            var radiusRelativeDim = Math.min(width, height);
+            var height = 180;
+            var radiusRelativeDim = 150;
             const svg = parent.append("svg")
                 .style("width", width + "px")
                 .style("height", height + "px");
 
+            svg.append("text")
+                .attr("x", (width / 2))             
+                .attr("y", 16)
+                .attr("text-anchor", "middle")  
+                .style("font-size", "16px") 
+                .style("text-decoration", "underline")  
+                .text(itemData.title);
+            
             const g = svg
                 .append("g")
-                .attr("transform", "translate(" + radiusRelativeDim / 2 + "," + height / 2 + ")");
+                .attr("transform", "translate(" + radiusRelativeDim / 2 + "," + (radiusRelativeDim / 2 + 30) + ")");
             g.selectAll(null)
                 .data(dataReady)
                 .enter()
@@ -283,7 +307,7 @@
                 .data(dataReady)
                 .enter().append("g")
                 .attr("transform", function(d,i){
-                    return "translate(" + (width - 110) + "," + (i * 15 + 20) + ")"; // place each legend on the right and bump each one down 15 pixels
+                    return "translate(" + (width - 110) + "," + (i * 15 + 30) + ")"; // place each legend on the right and bump each one down 15 pixels
                 })
                 .attr("class", "legend");   
 
@@ -312,10 +336,96 @@
             drawResultsDetailsChart(mouseoverDetailsView, itemData);
         }
 
-        var currentMouseOverFeature = null;
+        var selectedFeature = null;
+        var selectedFeatureDataSetCachedData = null;
+        var hoveredFeature = null;
+        var hoveredFeatureDataSetCachedData = null;
+        function setSelectedFeature(dataSetCachedData, feature) {
+            var oldSelectedFeature = selectedFeature;
+
+            selectedFeature = feature;
+            selectedFeatureDataSetCachedData = dataSetCachedData;
+            drawResultsDetailsChart(selectedDetailsView, dataSetCachedData.features[feature.id]);
+
+            if (oldSelectedFeature) {
+                var oldPath = d3.select("#path" + oldSelectedFeature.id)
+                    .attr("clip-path", function (d) { return "url(#clip" + d.id + ")"; });
+                styleFeaturePath(oldPath, oldSelectedFeature);
+            }
+
+            var path = d3.select("#path" + selectedFeature.id);
+            path.attr("clip-path", null);
+            var pathG = path.select(function() { return this.parentNode; });
+            pathG.raise();
+
+            styleFeaturePath(path, feature);
+        }
+
+        function isSelectedFeature(feature) {
+            if (selectedFeature == null) {
+                return feature == null;
+            }
+
+            if (feature == null) {
+                return false;
+            }
+
+            return feature.id == selectedFeature.id;
+        }
+
+        function isHoveredFeature(feature) {
+            if (hoveredFeature == null) {
+                return feature == null;
+            }
+
+            if (feature == null) {
+                return false;
+            }
+
+            return feature.id == hoveredFeature.id;
+        }
+
+        function setHoveredFeature(dataSetCachedData, feature) {
+            var oldHoveredFeature = hoveredFeature;
+            hoveredFeature = feature;
+
+            if (oldHoveredFeature) {
+                var oldPath = d3.select("#path" + oldHoveredFeature.id)
+                styleFeaturePath(oldPath, oldHoveredFeature);
+            }
+
+            if (feature) {
+                var path = d3.select("#path" + feature.id)
+                styleFeaturePath(path, feature);
+            }
+        }
+
+        function styleFeaturePath(path, feature) {
+            var isSelected = isSelectedFeature(feature);
+            var isHovered = isHoveredFeature(feature);
+            if (isSelected || isHovered) {
+                path.transition()
+                    .duration('50')
+                    .attr('opacity', isHovered ? '.45' : '0.6')
+                    .attr("stroke", "black")
+                    .attr("stroke-width", isSelected ? "2.5px" : "1px");
+            }
+            else {
+                path.transition()
+                    .duration('50')
+                    .attr('opacity', '1')
+                    .attr("stroke", "black")
+                    .attr("stroke-width", "0.1px");
+            }
+        }
+
         function setMappedData(features, dataSetCachedData) {
-            if (currentMouseOverFeature) {
-                generateTooltipContents(currentMouseOverFeature, dataSetCachedData.features[currentMouseOverFeature.id]);
+            if (hoveredFeature) {
+                generateTooltipContents(hoveredFeature, dataSetCachedData.features[hoveredFeature.id]);
+            }
+
+            if (selectedFeature) {
+                setSelectedFeature(dataSetCachedData, selectedFeature);
             }
 
             g.selectAll(".map-path")
@@ -323,30 +433,27 @@
                     return dataSetCachedData.features[d.id].fill;
                 })
                 .on('mouseover', function (d, feature) {
-                    currentMouseOverFeature = feature;
-
-                    d3.select(this).transition()
-                        .duration('50')
-                        .attr('opacity', '.45')
-                        .attr("stroke", "black")
-                        .attr("stroke-width", "1px");
+                    setHoveredFeature(dataSetCachedData, feature);
 
                     tooltipDiv.style("visibility", "visible");
                     mouseoverDetailsView.style("visibility", "visible");
                     generateTooltipContents(feature, dataSetCachedData.features[feature.id]);
+
+                    // styleFeaturePath(d3.select(this), feature, true);
                 })
                 .on('mousemove', function (d, feature) {
                     updateTooltipPosition(d);
                 })
                 .on('mouseout', function (d, feature) {
-                    d3.select(this).transition()
-                        .duration('50')
-                        .attr('opacity', '1')
-                        .attr("stroke", "black")
-                        .attr("stroke-width", "0.1px");
 
                     tooltipDiv.style("visibility", "hidden");
                     mouseoverDetailsView.style("visibility", "hidden");
+
+                    setHoveredFeature(dataSetCachedData, null);
+                    // styleFeaturePath(d3.select(this), feature, false);
+                })
+                .on('click', function (d, feature) {
+                    setSelectedFeature(dataSetCachedData, feature);
                 });
         }
 
@@ -366,6 +473,7 @@
             node.append("path")
                 .attr("class", "map-path")
                 .attr("d", path)
+                .attr("id", d => "path" + d.id)
                 .attr("fill", function (d) {
                     return dataSetCachedData.features[d.id].fill;
                 })
