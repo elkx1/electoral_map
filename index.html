@@ -125,110 +125,145 @@
             "MIN": "pink",
             "OTH": "pink",
         };
-        const getPartyColor = function (name) {
+        function getPartyColor(name) {
             if (name in partyColors) {
                 return partyColors[name];
             }
             return "black";
         }
 
-        // let electionFile = "data/electdata_2019.txt";
-        // let electionFile = "data/electdata_2017.txt";
-        // let electionFile = "data/electdata_2015.txt";
-        // let electionFile = "data/electdata_2010ug.txt";
-        let electionFile = "data/electdata_2005nb.txt";
-        
-        const sliderRange = d3.sliderBottom()
-            .min(0)
-            .max(4)
-            .width(300)
-            .ticks(5)
-            .default(4)
-            .step(1)
-            .fill('#85bb65');
-            
-        // sliderRange.on('onchange', val => {
-        //     d3.dsv(";", electionFile)
-        //     path.data
-        // })
-        const gRange = d3
-            .select('#slider-range')
-            .append('svg')
-            .attr('width', 500)
-            .attr('height', 100)
-            .append('g')
-            .attr('transform', 'translate(90,30)');
+        function clearPaths() {
+            svg.selectAll("path").remove();
+        }
 
-        gRange.call(sliderRange);
-
-        // Load GeoJSON data from a file
-        d3.json("data/topo_westminster_parliamentary_constituencies_2014.json").then(function (mapData) {
-            d3.dsv(";", electionFile).then(function (electionData) {
-                // Extract parties from the CSV header row
-                const parties = electionData.columns.filter(col => col !== 'Name' && col !== 'MP' && col !== 'Area' && col !== 'County' && col !== 'Electorate');
-
-                // Create a map of constituency names to winning parties
-                const winningParties = {};
-                electionData.forEach(result => {
-                    const constituency = result.Name;
-                    const partyScores = parties.map(party => ({ party, score: parseInt(result[party]) }));
-
-                    const winningParty = partyScores.reduce((prev, current) => (prev.score > current.score ? prev : current)).party;
-                    winningParties[constituency] = winningParty;
-
-                    // console.log("Winnning party for " + constituency + ": " + winningParty)
+        function drawMappedData(features, dataSetCachedData) {
+            // Render the map
+            svg.selectAll("path")
+                .data(features)
+                .enter().append("path")
+                .attr("d", path)
+                .attr("fill", function (d) {
+                    return dataSetCachedData.features[d.id].fill;
                 });
+        };
 
-                // Render the map
-                svg.selectAll("path")
-                    .data(topojson.feature(mapData, mapData.objects.wpc).features)
-                    .enter().append("path")
-                    .attr("d", path)
-                    .attr("fill", function (d) {
-                        const constituencyName = d.properties.PCON13NM; // Adjusted according to the topojson structure
+        function computeDataSetCachedData(dataSet) {
+            // Extract parties from the CSV header row
+            const parties = dataSet.columns.filter(col => col !== 'Name' && col !== 'MP' && col !== 'Area' && col !== 'County' && col !== 'Electorate');
 
-                        let matchingName = null;
+            // Create a map of constituency names to winning parties
+            const winningParties = {};
+            dataSet.forEach(result => {
+                const constituency = result.Name;
+                const partyScores = parties.map(party => ({ party, score: parseInt(result[party]) }));
 
-                        // Check if the constituency name exists in election data
-                        if (constituencyName in winningParties) {
-                            matchingName = constituencyName;
-                        } else {
-                            // Check aliases
-                            var aliases = getAliasMappings(constituencyName)
-                            // console.log("aliases for " + constituencyName + ": " + aliases)
-                            aliases.forEach(alias => {
-                                if (alias in winningParties) {
-                                    matchingName = alias;
-                                }
-                            })
-                        }
+                const winningParty = partyScores.reduce((prev, current) => (prev.score > current.score ? prev : current)).party;
+                winningParties[constituency] = winningParty;
 
-                        if (matchingName == null) {
-                            console.log("No match found for constituency name " + constituencyName);
-                            return "black";
-                        }
+                // console.log("Winnning party for " + constituency + ": " + winningParty)
+            });
 
-                        const winningParty = winningParties[matchingName];
-                        return getPartyColor(winningParty);
+            return {"winningParties": winningParties};
+        }
 
-                        // const winningParty = winningParties[matchingName];
+        function computeFeatureData(feature, mappedDataSet, dataSetCachedData) {
+            // Adjust for the particular property name in the topojson file
+            const constituencyName = feature.properties.PCON13NM;
+            
+            let matchingName = null;
 
-                        // Define colors for parties
-                        // const partyColors = {
-                        // Define colors for each party dynamically
-                        // };
+            // Check if the constituency name exists in election data
+            if (constituencyName in dataSetCachedData.winningParties) {
+                matchingName = constituencyName;
+            } else {
+                // Check aliases
+                var aliases = getAliasMappings(constituencyName)
+                // console.log("aliases for " + constituencyName + ": " + aliases)
+                aliases.forEach(alias => {
+                    if (alias in dataSetCachedData.winningParties) {
+                        matchingName = alias;
+                    }
+                })
+            }
 
-                        // return partyColors[winningParty];
-                        // return 'red';
-                    });
+            if (matchingName == null) {
+                console.log("No match found for constituency name " + constituencyName);
+                return "black";
+            }
 
+            const winningParty = dataSetCachedData.winningParties[matchingName];
+            return {"fill": getPartyColor(winningParty)};
+        }
 
-                //   .attr("fill", function(d) {
-                //     // Your code to determine and apply colors based on election results
-                //     // ...
-                //   });
+        function onDataLoaded(mapGeoJSON, mappedDataSetConfigs, mappedDataSets) {
+            // The things we want to draw
+            mapFeatures = topojson.feature(mapGeoJSON, mapGeoJSON.objects.wpc).features
+
+            // Cache the drawing information
+            allDataSetsCachedData = [];
+            for (const dataSet of mappedDataSets) {
+                dataSetCachedData = {};
+                dataSetCachedData.root = computeDataSetCachedData(dataSet);
+                dataSetCachedData.features = {};
+                for (const feature of mapFeatures) {
+                    dataSetCachedData.features[feature.id] = computeFeatureData(feature, dataSet, dataSetCachedData.root);
+                }
+                allDataSetsCachedData.push(dataSetCachedData);
+            }
+
+            numDataSets = mappedDataSets.length
+            initialDataSet = numDataSets - 1
+            const sliderRange = d3.sliderBottom()
+                .min(0)
+                .max(numDataSets - 1)
+                .width(300)
+                .ticks(numDataSets)
+                .default(initialDataSet)
+                .step(1)
+                .fill('#85bb65')
+                .tickFormat(function (tick) { return mappedDataSetConfigs[tick].id; });
+            
+            const gRange = d3
+                .select('#slider-range')
+                .append('svg')
+                .attr('width', 500)
+                .attr('height', 100)
+                .append('g')
+                .attr('transform', 'translate(90,30)');
+
+            gRange.call(sliderRange);
+
+            drawMappedData(mapFeatures, allDataSetsCachedData[initialDataSet]);
+
+            sliderRange.on('onchange', val => {
+                console.log("onchange", electionFiles[val].filename);
+                clearPaths();
+                drawMappedData(mapFeatures, allDataSetsCachedData[val]);
             })
-        });
+        }
+
+        mapGeoJSONFileName = "/data/topo_westminster_parliamentary_constituencies_2014.json";
+        electionFiles = [
+            {"id": "2005", "filename": "/data/electdata_2005nb.txt"},
+            {"id": "2010", "filename": "/data/electdata_2010ug.txt"},
+            {"id": "2015", "filename": "/data/electdata_2015.txt"},
+            {"id": "2017", "filename": "/data/electdata_2017.txt"},
+            {"id": "2019", "filename": "/data/electdata_2019.txt"},
+        ];
+        
+        promises = [];
+        promises.push(d3.json(mapGeoJSONFileName));
+        for (const electionFile of electionFiles) {
+            promises.push(d3.dsv(";", electionFile.filename));
+        }
+
+        Promise.all(promises).then(
+            function (results) {
+                mapGeoJSON = results[0];
+                electionFilesData = results.slice(1);
+                onDataLoaded(mapGeoJSON, electionFiles, electionFilesData);
+            }
+        )
     </script>
 
 </body>
