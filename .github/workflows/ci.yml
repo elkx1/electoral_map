@@ -40,9 +40,12 @@ jobs:
 
     - name: Build website
       uses: actions/jekyll-build-pages@v1
-      # with:
-        # source: dist
+      with:
+        source: dist
 
+    - name: Upload pages artifact
+      uses: actions/upload-pages-artifact@v2
+      
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v2 # or specific "vX.X.X" version tag for this action
+      uses: actions/deploy-pages@v4 # or specific "vX.X.X" version tag for this action
