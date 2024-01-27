@@ -8,7 +8,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
+    outputs:
+      dist: 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -30,7 +31,7 @@ jobs:
     - name: Build website
       uses: actions/jekyll-build-pages@v1
       with:
-        source: ./dist/
+        source: dist
 
   deploy:
     needs: build-and-test
@@ -48,6 +49,9 @@ jobs:
     # Specify runner + deployment step
     runs-on: ubuntu-latest
     steps:
+      - name: List stuff
+        run: find -type f
+        
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v3 # or specific "vX.X.X" version tag for this action
