@@ -123,6 +123,7 @@
         function zoomed(event) {
             const {transform} = event;
             g.attr("transform", transform);
+            updateTooltipPosition(event.sourceEvent)
         }
 
         const zoom = d3.zoom().scaleExtent([0.3, 16]).on("zoom", zoomed);
@@ -236,6 +237,17 @@
             .style("visibility", "hidden")
             .style("z-index", "0");
 
+        function updateTooltipPosition(mouseEvent) {
+            // This is horrible code; we should really have a MVC architecture
+            // But that also would require splitting this thing into something much bigger.
+            // Definitely something to aim towards
+            // var coordinates= d3.mouse(this);
+            tooltipDiv
+                .style("left", (mouseEvent.pageX + 10) + "px")
+                .style("top", (mouseEvent.pageY - 15) + "px")
+                .style("position", "absolute");
+        }
+
         function generateTooltipContents(feature, itemData) {
             tooltipDiv.html("");
             mouseoverDetailsView.html("");
@@ -277,10 +289,7 @@
                     generateTooltipContents(feature, dataSetCachedData.features[feature.id]);
                 })
                 .on('mousemove', function (d, feature) {
-                    tooltipDiv
-                        .style("left", (d.pageX + 10) + "px")
-                        .style("top", (d.pageY - 15) + "px")
-                        .style("position", "absolute");
+                    updateTooltipPosition(d);
                 })
                 .on('mouseout', function (d, feature) {
                     d3.select(this).transition()
