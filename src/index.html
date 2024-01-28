@@ -167,20 +167,25 @@
 
         // Define colors for parties
         const partyColors = {
-            "CON": "blue",
-            "LAB": "red",
-            "LIB": "yellow",
+            "CON": "#00AEEF",
+            "LAB": "#E4003B",
+            "LIB": "#FAA61A",
             "Brexit": "purple",
             "Green": "green",
-            "NAT": "pink",
+            "NAT": "#fef48b",
             "MIN": "pink",
-            "OTH": "pink",
+            "OTH": "grey",
+            "UKIP": "purple",
         };
         function getPartyColor(name) {
             if (name in partyColors) {
                 return partyColors[name];
             }
-            return "black";
+            // todo this should not happen; it's a problem in the alias mapper
+            // Really, we should make this an error but that's gonna take a bit
+            // of time to fix so we have this for now
+            console.log("WARNING: Unknown party: " + name);
+            // throw new Error("Unknown party " + name);
         }
 
         function clearPaths() {
