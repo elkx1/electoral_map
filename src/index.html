@@ -154,13 +154,13 @@
             updateTooltipPosition(event.sourceEvent)
         }
 
-        const zoom = d3.zoom().scaleExtent([0.3, 16]).on("zoom", zoomed);
+        const zoom = d3.zoom().scaleExtent([0.03, 300]).on("zoom", zoomed);
         svg.call(zoom);
 
         // Projection using geoMercator
         const projection = d3.geoMercator()
-            .scale(5800)
-            .center([-1.5, 54.5]);
+            .scale(2100)
+            .center([-4.5, 56.0]);
 
         // Create a GeoPath generator
         const path = d3.geoPath().projection(projection);
@@ -273,7 +273,6 @@
         }
 
         function generateTooltipContents(region, map, electionResults, aliasMap) {
-            console.log(region);
             tooltipDiv.html("");
 
             tooltipDiv.append("p").text(region.name());
@@ -428,9 +427,9 @@
             setMappedData(map, electionResults, aliasMap);
         };
 
-        function onDataLoaded(mapGeoJSON, electionsResults) {
+        function onDataLoaded(mapsGeoJSON, electionsResults) {
             let mapDate = new Date('1900-01-01'); // todo load this into a Timeline
-            let map = new electionData.Map(mapDate, mapGeoJSON);
+            let map = new electionData.Map(mapDate, mapsGeoJSON);
 
             let aliasMap = new electionData.RegionNameAliasMap([map], electionsResults);
 
@@ -463,7 +462,13 @@
             })
         }
 
-        mapGeoJSONFileName = "data/topo_westminster_parliamentary_constituencies_2014.json";
+        mapGeoJSONFileNames = [
+            "data/topo_westminster_parliamentary_constituencies_england_2014.json",
+            "data/topo_westminster_parliamentary_constituencies_wales_2014.json",
+            "data/topo_westminster_parliamentary_constituencies_scotland_2014.json",
+            "data/topo_westminster_parliamentary_constituencies_ni_2014.json",
+        ];
+
         electionFiles = [
             {date: new Date("2005-01-01"), filename: "data/electdata_2005nb.txt"},
             {date: new Date("2010-01-01"), filename: "data/electdata_2010ug.txt"},
@@ -472,18 +477,24 @@
             {date: new Date("2019-01-01"), filename: "data/electdata_2019.txt"},
         ];
         
-        promises = [];
-        promises.push(d3.json(mapGeoJSONFileName));
-        for (const electionFile of electionFiles) {
-            promises.push(d3.dsv(";", electionFile.filename).then(data => new electionData.ElectionResults(electionFile.date, data)));
+        let promisesMaps = [];
+        for (const filename of mapGeoJSONFileNames) {
+            promisesMaps.push(d3.json(filename));
         }
+
+        let promisesElectionData = []
+        for (const electionFile of electionFiles) {
+            promisesElectionData.push(d3.dsv(";", electionFile.filename).then(data => new electionData.ElectionResults(electionFile.date, data)));
+        }
+
+        let promises = [...promisesMaps, ...promisesElectionData];
 
         Promise.all(promises).then(
             function (results) {
-                mapGeoJSON = results[0];
-                electionsResults = results.slice(1);
+                mapsGeoJSON = results.slice(0, promisesMaps.length);
+                electionsResults = results.slice(promisesMaps.length);
 
-                onDataLoaded(mapGeoJSON, electionsResults);
+                onDataLoaded(mapsGeoJSON, electionsResults);
             }
         )
     </script>

@@ -7,7 +7,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const geoJSONDataSets = [
-    { date: new Date("2014-01-01"), path: path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_2014.json') },
+    { path: path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_england_2014.json') },
+    { path: path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_wales_2014.json') },
+    { path: path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_scotland_2014.json') },
+    { path: path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_ni_2014.json') },
 ];
 
 const electionResultsDataSets = [
@@ -26,7 +29,7 @@ describe('Map and MapRegion classes', () => {
             var promise = fs.promises
                 .readFile(dataSet.path)
                 .then(json => JSON.parse(json.toString()))
-                .then(obj => mapData.push(new Map(dataSet.date, obj)));
+                .then(obj => mapData.push(obj));
             promises.push(promise);
         }
 
@@ -39,7 +42,9 @@ describe('Map and MapRegion classes', () => {
 
         await Promise.all(promises);
 
-        regionNameAliasMap = new RegionNameAliasMap(mapData, electionResultsData);
+        var map = new Map(new Date("2014-01-01"), mapData);
+        var maps = [map];
+        regionNameAliasMap = new RegionNameAliasMap(maps, electionResultsData);
     });
 
     test('all loaded regions should have a bidirectional mapping', () => {

@@ -151,8 +151,21 @@ class MapRegion {
   }
 
   name() {
+    let properties = this._geoJSONFeature.properties;
+
     // This is specific to our current map data format; might need to change this in the future
-    return this._geoJSONFeature.properties.PCON13NM;
+    let valueCandidates = [
+      properties.PCON13NM,
+      properties.PC_NAME,
+    ];
+
+    for (const candidate of valueCandidates) {
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    throw new Error("Missing name");
   }
 
   area() {
@@ -174,21 +187,25 @@ class MapRegion {
 }
 
 class Map {
-  constructor(date, geoJSON) {
+  constructor(date, geoJSONs) {
     this.date = date;
 
-    const mapFeatures = topojson.feature(geoJSON, geoJSON.objects.wpc).features;
-    this._topoJSONFeatures = mapFeatures;
-    this._regions = [];
-    for (const feature of mapFeatures) {
-      this._regions[feature.id] = new MapRegion(feature);
+    this._regions = {};
+    this._topoJSONFeatures = [];
+
+    for (const geoJSON of geoJSONs) {
+      const mapFeatures = topojson.feature(geoJSON, geoJSON.objects.wpc).features;
+      this._topoJSONFeatures = this._topoJSONFeatures.concat(mapFeatures);
+      for (const feature of mapFeatures) {
+        this._regions[feature.id] = new MapRegion(feature);
+      }
     }
   }
 
   getTopoJSONFeatures() {
     return this._topoJSONFeatures;
   }
-  
+
   getRegions() { 
     return Object.values(this._regions)
   }
@@ -255,7 +272,7 @@ class RegionNameAliasMap {
 
     // Alias mapping between constituency names in election data and GeoJSON data, 
     // for items that cannot be mechanically translated
-    this._manualAliases = {
+    let manualAliases = {
       // "GeoJSONName": "ElectionName",
       // Add more aliases as needed
   
@@ -266,7 +283,14 @@ class RegionNameAliasMap {
       "Kingston upon Hull North": "Hull North",
       "South Basildon and East Thurrock": "Basildon South and East Thurrock",
       "Richmond (Yorks)": "Richmond",
+      "Na h-Eileanan An Iar": "Na h-Eileanan An Iar (Western Isles)",
     };
+
+    // Convert all the keys to lowercase, so they can later be processed quickly
+    this._manualAliases = {};
+    for (const [key, value] of Object.entries(manualAliases)) {
+      this._manualAliases[key.toLowerCase()] = value.toLowerCase();
+    }
 
     var remaining = new Set(this.electionDataRegionNames);
     var electionResultsRegionNameByMapRegionName = {};
@@ -275,6 +299,15 @@ class RegionNameAliasMap {
       electionResultsRegionNameByMapRegionName[mapRegionName] = electionRegionName;
       mapRegionNameByElectionResultsRegionName[electionRegionName] = mapRegionName;
       remaining.delete(electionRegionName);
+    }
+
+    function anyRemainingMatch(alias) {
+      for (const remainingItem of remaining) {
+        if (remainingItem.toLowerCase() === alias) {
+          return remainingItem;
+        }
+      }
+      return null;
     }
 
     for (const mapRegionName of this.mapRegionNames) {
@@ -286,8 +319,10 @@ class RegionNameAliasMap {
       let potentialAliases = this.getMapRegionNamePotentialAliases(mapRegionName);
       var found = false;
       for (const alias of potentialAliases) {
-        if (remaining.has(alias)) {
-          saveMapping(mapRegionName, alias);
+        // console.log(mapRegionName, "alias: " + alias)
+        let match = anyRemainingMatch(alias);
+        if (match) {
+          saveMapping(mapRegionName, match);
           found = true;
           break;
         }
@@ -317,32 +352,43 @@ class RegionNameAliasMap {
     return this._mapRegionNameByElectionResultsRegionName[electionDataRegionName];
   }
 
+
+
   // Aliases between election data name and GeoJSON name
   // The GeoJSON name appears to be better so go with that normally for display
   getMapRegionNamePotentialAliases(name) {
+    name = name.toLowerCase();
+
     var aliases = [name.replaceAll("-", " ").replaceAll(",", "")];
+    function pushAlias(alias) {
+      if (!alias) {
+        throw new Error("Invalid alias generated");
+      }
+
+      aliases.push(alias);
+    }
 
     if (name in this._manualAliases) {
-      aliases.push(this._manualAliases[name]);
+      pushAlias(this._manualAliases[name]);
     }
 
     const swappedEndings = [
-      { "name": "North West", "has_comma": false },
-      { "name": "North East", "has_comma": false },
-      { "name": "South East", "has_comma": false },
-      { "name": "South West", "has_comma": false },
-      { "name": "Central", "has_comma": false },
-      { "name": "North", "has_comma": false },
-      { "name": "East", "has_comma": false },
-      { "name": "South", "has_comma": false },
-      { "name": "West", "has_comma": false },
-      { "name": "Mid", "has_comma": false }, // Pretty mid
-      { "name": "City of", "has_comma": true },
-      { "name": "The", "has_comma": true },
+      { "name": "north west", "has_comma": false },
+      { "name": "north east", "has_comma": false },
+      { "name": "south east", "has_comma": false },
+      { "name": "south west", "has_comma": false },
+      { "name": "central", "has_comma": false },
+      { "name": "north", "has_comma": false },
+      { "name": "east", "has_comma": false },
+      { "name": "south", "has_comma": false },
+      { "name": "west", "has_comma": false },
+      { "name": "mid", "has_comma": false }, // Pretty mid
+      { "name": "city of", "has_comma": true },
+      { "name": "the", "has_comma": true },
     ];
 
     function swapEndings(namePart) {
-      let foundAlias = null;
+      let foundAlias = namePart;
       for (const special of swappedEndings) {
         let specialName = special["name"]
         if (namePart.startsWith(specialName + " ")) {
@@ -364,11 +410,11 @@ class RegionNameAliasMap {
           partAliases.push(swapped);
         }
       }
-      aliases.push(partAliases.join(" and "));
-      aliases.push(partAliases.reverse().join(" and "));
+      pushAlias(partAliases.join(" and "));
+      pushAlias(partAliases.reverse().join(" and "));
     }
     else {
-      aliases.push(swapEndings(name))
+      pushAlias(swapEndings(name))
     }
 
     return aliases;

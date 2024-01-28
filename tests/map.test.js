@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load GeoJSON from file
-const geoJSONFilePath = path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_2014.json');
+const geoJSONFilePath = path.join(__dirname, '../src/data/topo_westminster_parliamentary_constituencies_england_2014.json');
 const geoJSONFileContent = fs.readFileSync(geoJSONFilePath, 'utf8');
 const geoJSON = JSON.parse(geoJSONFileContent);
 
@@ -15,7 +15,7 @@ describe('Map and MapRegion classes', () => {
     let map;
 
     beforeAll(() => {
-        map = new Map(2022, geoJSON);
+        map = new Map(2022, [geoJSON]);
     });
 
     test('should have correct date in Map class', () => {
@@ -42,6 +42,7 @@ describe('Map and MapRegion classes', () => {
     });
 
     test('regions should have ids matching topojson', () => {
+        expect(map.getTopoJSONFeatures().length).toBeGreaterThan(0);
         for (var i = 0; i < map.getTopoJSONFeatures().length; ++i) {
             let region = map.getRegions()[i];
             expect(region.id()).toBe(map.getTopoJSONFeatures()[i].id);
