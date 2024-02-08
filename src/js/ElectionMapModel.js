@@ -1,6 +1,7 @@
-import { Observable } from "./Observable";
+import { Observable } from "./Observable.js";
 
 const EventFlags = {
+    None: 0,
     MapChanged: 1,
     ElectionResultsChanged: 2,
     DateChanged: 4,
@@ -15,6 +16,7 @@ export class ElectionMapModel {
         this._electionResults = null;
         this._observable = new Observable();
         this._date = null;
+        this._electionResultsIndex = -1;
 
         var dates = electionResultsTimeline.getDates();
         if (!dates) {
@@ -29,10 +31,23 @@ export class ElectionMapModel {
 
     setDataByDate(date) {
         var mapData = this._mapTimeline.getObjectByDate(date);
-        var electionResults = this._electionResultsTimeline.getObjectByDate(date);
-        this._setData(date, mapData, electionResults)
+        var electionResultsIndex = this._electionResultsTimeline.getObjectIndexByDate(date);
+        var electionResults = this._electionResultsTimeline.getObjectByIndex(electionResultsIndex);
+        this._setData(date, mapData, electionResultsIndex, electionResults)
     }
 
+    getAllMaps() {
+        return this._mapTimeline.objects;
+    }
+
+    getElectionResultsDates() {
+        return this._electionResultsTimeline.getDates();
+    }
+
+    getDate() {
+        return this._date;
+    }
+    
     getMap() {
         return this._map;
     }
@@ -41,7 +56,23 @@ export class ElectionMapModel {
         return this._electionResults;
     }
 
-    _setData(date, mapData, electionResults) {
+    getElectionResultsByIndex(index) {
+        return this._electionResultsTimeline.getObjectByIndex(index);
+    }
+
+    getAllElectionResults() {
+        return this._electionResultsTimeline.objects;
+    }
+
+    getElectionResultsIndex() {
+        return this._electionResultsIndex;
+    }
+
+    getElectionResultsCount() {
+        return this._electionResultsTimeline.objects.length;
+    }
+
+    _setData(date, mapData, electionResultsIndex, electionResults) {
         var flags = 0;
 
         if (this._date?.getTime() != date?.getTime()) {
@@ -62,6 +93,7 @@ export class ElectionMapModel {
 
         this._date = date;
         this._map = mapData;
+        this._electionResultsIndex = electionResultsIndex;
         this._electionResults = electionResults;
 
         var event = {source: this, flags: flags};

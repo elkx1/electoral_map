@@ -52,27 +52,37 @@ describe('ElectionMapModel class', () => {
         model.onChanged(e => raisedEvents.push(e));
     });
 
-    function expectDataOfDates(electionResultsDate, mapDate) {
+    function expectDataOfDates(electionResultsIndex, electionResultsDate, mapDate) {
         expect(model.getMap()?.date).toStrictEqual(mapDate);
+        expect(model.getElectionResultsIndex()).toStrictEqual(electionResultsIndex);
         expect(model.getElectionResults()?.date).toStrictEqual(electionResultsDate);
     }
 
+    test('getElectinResultsDates', () => {
+        expect(model.getElectionResultsDates()).toEqual([
+            new Date("2010-01-01"),
+            new Date("2015-01-01"),
+            new Date("2017-01-01"),
+            new Date("2019-01-01"),
+        ])
+    });
+
     test('model initially has latest data', () => {
-        expectDataOfDates(new Date("2019-01-01"), new Date("2017-01-01"));
+        expectDataOfDates(3, new Date("2019-01-01"), new Date("2017-01-01"));
     });
 
     test('set model date selects correct map and election results', () => {
         model.setDataByDate(new Date("2005-01-01"));
-        expectDataOfDates(undefined, undefined);
+        expectDataOfDates(-1, undefined, undefined);
 
         model.setDataByDate(new Date("2010-01-01"));
-        expectDataOfDates(new Date("2010-01-01"), undefined);
+        expectDataOfDates(0, new Date("2010-01-01"), undefined);
 
         model.setDataByDate(new Date("2015-01-01"));
-        expectDataOfDates(new Date("2015-01-01"), new Date("2014-01-01"));
+        expectDataOfDates(1, new Date("2015-01-01"), new Date("2014-01-01"));
 
         model.setDataByDate(new Date("2020-01-01"));
-        expectDataOfDates(new Date("2019-01-01"), new Date("2017-01-01"));
+        expectDataOfDates(3, new Date("2019-01-01"), new Date("2017-01-01"));
     });
 
     test('events when set same as current settings', () => {

@@ -2,6 +2,17 @@ import * as topojson from 'topojson-client'
 import simplify from './simplify/simplify.js';
 import * as fs from 'fs'
 
+function readFile(path, readFileFunction = null) {
+  if (!readFileFunction) {
+    readFileFunction = fs.promises.readFile;
+    if (!readFileFunction) {
+      throw new Error("fs module not loaded");
+    }
+  }
+
+  return readFileFunction(path);
+}
+
 class ElectionResults {
   constructor(date, results) {
     this.date = date;
@@ -252,33 +263,41 @@ class Timeline {
 
   // Returns the newest object whose date is less than the given date
   getObjectByDate(date) {
+    var index = this.getObjectIndexByDate(date);
+    return index < 0 ? null : this.objects[index];
+  }
+
+  getObjectByIndex(index) {
+    return this.objects[index];
+  }
+
+  getObjectIndexByDate(date) {
     if (!(date instanceof Date)) {
       throw new TypeError('Expected an instance of Date');
     }
 
     // todo binary search
 
-    var last = null;
+    var i = -1;
     for (const object of this.objects) {
       if (object.date > date) {
         break;
       }
-      last = object;
+      ++i;
     }
 
-    return last;
+    return i;
   }
 
   // dataSets is an array of {date: Date, path: String} objects listing paths to 
   // map files.
   // returns a promise that will result in a new Timeline of Map objects.
-  static async loadMaps(dataSets) {
+  static async loadMaps(dataSets, readFileFunction = null) {
     const promises = [];
     for (const dataSet of dataSets) {
         var thisDataSetPromises = []
         for (const path of dataSet.paths) {
-            var promise = fs.promises
-                .readFile(path)
+            var promise = readFile(path, readFileFunction)
                 .then(json => JSON.parse(json.toString()));
             thisDataSetPromises.push(promise);
         }
@@ -293,11 +312,10 @@ class Timeline {
   // dataSets is an array of {date: Date, path: String} objects listing paths to 
   // election results files.
   // returns a promise that will result in a new Timeline of ElectionResults objects.
-  static async loadElectionResults(dataSets) {
+  static async loadElectionResults(dataSets, readFileFunction = null) {
     var promises = []
     for (const dataSet of dataSets) {
-        var promise = fs.promises
-            .readFile(dataSet.path)
+        var promise = readFile(dataSet.path, readFileFunction)
             .then(data => ElectionResults.parse(dataSet.date, new String(data)));
         promises.push(promise);
     }
@@ -308,6 +326,14 @@ class Timeline {
 
 class RegionNameAliasMap {
   constructor(mapsArray, electionResultsArray) {
+    if (!Array.isArray(mapsArray)) {
+      throw new Error("maps must be an array");
+    }
+
+    if (!Array.isArray(electionResultsArray)) {
+      throw new Error("election results must be an array");
+    }
+    
     function getAllRegionNames(collection) {
       const superSet = new Set();
       collection.map(item => item.getRegionNames().forEach(v => superSet.add(v)));

@@ -188,10 +188,6 @@
             // throw new Error("Unknown party " + name);
         }
 
-        function clearPaths() {
-            svg.selectAll("path").remove();
-        }
-
         const tooltipDiv = d3.select("body").append("div")
             .attr("class", "tooltip-mapped-data")
             .style("visibility", "hidden")
@@ -408,6 +404,10 @@
                 });
         }
 
+        function clearMap() {
+            g.html("")
+        }
+
         function drawElectionResultsMap(map, electionResults, aliasMap) {
             // Render the map
             var node = g.selectAll(".map-poly")
@@ -432,23 +432,21 @@
             setMappedData(map, electionResults, aliasMap);
         };
 
-        function onDataLoaded(mapsGeoJSON, electionsResults) {
-            let mapDate = new Date('1900-01-01'); // todo load this into a Timeline
-            let map = new electionData.Map(mapDate, mapsGeoJSON);
+        function drawElectionResultsMapFromModel(model, aliasMap) {
+            drawElectionResultsMap(model.getMap(), model.getElectionResults(), aliasMap);
+        }
 
-            let aliasMap = new electionData.RegionNameAliasMap([map], electionsResults);
-
-            numDataSets = electionsResults.length
-            initialDataSet = numDataSets - 1
+        function onDataLoaded(model) {
+            let aliasMap = new ElectionData.RegionNameAliasMap(model.getAllMaps(), model.getAllElectionResults());
             const sliderRange = d3.sliderBottom()
                 .min(0)
-                .max(numDataSets - 1)
+                .max(model.getElectionResultsCount() - 1)
                 .width(500)
-                .ticks(numDataSets)
-                .default(initialDataSet)
+                .ticks(model.getElectionResultsCount())
+                .default(model.getElectionResultsIndex())
                 .step(1)
                 .fill('#85bb65')
-                .tickFormat(tick => electionsResults[tick].date.getFullYear());
+                .tickFormat(tick => model.getElectionResultsByIndex(tick).date.getFullYear());
             
             const gRange = d3
                 .select('#slider-range')
@@ -459,49 +457,54 @@
 
             gRange.call(sliderRange);
 
-            drawElectionResultsMap(map, electionsResults[initialDataSet], aliasMap);
+            model.onChanged(event => {
+                let EventFlags = ElectionData.ElectionMapModel.EventFlags;
+                if ((event.flags & EventFlags.MapChanged) != EventFlags.None) {
+                    clearMap(); // todo draw to a different svg and cache
+                    drawElectionResultsMapFromModel(model, aliasMap);
+                }
+                else if ((event.flags & EventFlags.ElectionResultsChanged) != EventFlags.None) {
+                    setMappedData(model.getMap(), model.getElectionResults(), aliasMap);
+                }
+            });
+            drawElectionResultsMapFromModel(model, aliasMap);
 
             sliderRange.on('onchange', val => {
-                console.log("onchange", electionFiles[val].filename);
-                setMappedData(map, electionsResults[val], aliasMap);
+                model.setDataByDate(model.getElectionResultsDates()[val])
             })
         }
 
-        mapGeoJSONFileNames = [
-            "data/topo_westminster_parliamentary_constituencies_england_2014.json",
-            "data/topo_westminster_parliamentary_constituencies_wales_2014.json",
-            "data/topo_westminster_parliamentary_constituencies_scotland_2014.json",
-            "data/topo_westminster_parliamentary_constituencies_ni_2014.json",
+        var mapDataSets = [
+            {
+                date: new Date('2005-01-01'), // I don't think this map is actually valid back to 2005 but it's all the data we have right now 
+                paths: [
+                    "data/topo_westminster_parliamentary_constituencies_england_2014.json",
+                    "data/topo_westminster_parliamentary_constituencies_wales_2014.json",
+                    "data/topo_westminster_parliamentary_constituencies_scotland_2014.json",
+                    "data/topo_westminster_parliamentary_constituencies_ni_2014.json",
+                ]
+            },
         ];
 
-        electionFiles = [
-            {date: new Date("2005-01-01"), filename: "data/electdata_2005nb.txt"},
-            {date: new Date("2010-01-01"), filename: "data/electdata_2010ug.txt"},
-            {date: new Date("2015-01-01"), filename: "data/electdata_2015.txt"},
-            {date: new Date("2017-01-01"), filename: "data/electdata_2017.txt"},
-            {date: new Date("2019-01-01"), filename: "data/electdata_2019.txt"},
+        var electionResultsDataSets = [
+            {date: new Date("2005-01-01"), path: "data/electdata_2005nb.txt"},
+            {date: new Date("2010-01-01"), path: "data/electdata_2010ug.txt"},
+            {date: new Date("2015-01-01"), path: "data/electdata_2015.txt"},
+            {date: new Date("2017-01-01"), path: "data/electdata_2017.txt"},
+            {date: new Date("2019-01-01"), path: "data/electdata_2019.txt"},
         ];
         
-        let promisesMaps = [];
-        for (const filename of mapGeoJSONFileNames) {
-            promisesMaps.push(d3.json(filename));
-        }
+        var mapTimeline = null;
+        var electionResultsTimeline = null;
+        const promises = [
+            ElectionData.Timeline.loadMaps(mapDataSets, d3.text).then(t => mapTimeline = t),
+            ElectionData.Timeline.loadElectionResults(electionResultsDataSets, d3.text).then(t => electionResultsTimeline = t),
+        ];
 
-        let promisesElectionData = []
-        for (const electionFile of electionFiles) {
-            promisesElectionData.push(d3.dsv(";", electionFile.filename).then(data => new electionData.ElectionResults(electionFile.date, data)));
-        }
-
-        let promises = [...promisesMaps, ...promisesElectionData];
-
-        Promise.all(promises).then(
-            function (results) {
-                mapsGeoJSON = results.slice(0, promisesMaps.length);
-                electionsResults = results.slice(promisesMaps.length);
-
-                onDataLoaded(mapsGeoJSON, electionsResults);
-            }
-        )
+        Promise.all(promises).then(obj => {
+            let model = new ElectionData.ElectionMapModel(mapTimeline, electionResultsTimeline);
+            onDataLoaded(model);
+        });
     </script>
 
 </body>
