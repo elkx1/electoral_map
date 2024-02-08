@@ -51,4 +51,16 @@ describe('Timeline class', () => {
     expect(timeline.getObjectByDate(new Date('2022-03-01'))).toEqual(object3);
     expect(timeline.getObjectByDate(new Date('2092-03-01'))).toEqual(object3);
   });
+
+  test('should return dates', () => {
+    timeline.addObject({ date: new Date('2022-01-01') });
+    timeline.addObject({ date: new Date('2022-02-01') });
+    timeline.addObject({ date: new Date('2022-03-01') });
+
+    expect(timeline.getDates()).toEqual([
+      new Date('2022-01-01'),
+      new Date('2022-02-01'),
+      new Date('2022-03-01'),
+    ])
+  });
 });

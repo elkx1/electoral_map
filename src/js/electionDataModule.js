@@ -1,5 +1,6 @@
 import * as topojson from 'topojson-client'
 import simplify from './simplify/simplify.js';
+import * as fs from 'fs'
 
 class ElectionResults {
   constructor(date, results) {
@@ -220,12 +221,17 @@ class Map {
 }
 
 class Timeline {
-  constructor() {
+  constructor(objects = []) {
     this.objects = [];
+    objects.forEach(o => this.addObject(o));
   }
 
   // Adds an object to the timeline; if the object's date is non-monotonic, an exception is thrown
   addObject(object) {
+    if (!object) {
+      throw new Error('Invalid object');
+    }
+
     const date = object.date;
     if (!(date instanceof Date)) {
       throw new TypeError('Expected an instance of Date');
@@ -233,10 +239,15 @@ class Timeline {
 
     if (this.objects.length != 0) {
       if (object.date <= this.objects[this.objects.length - 1].date) {
-        throw new Error('Non-monotonic object added to Timeline');
+        throw new Error('Non-monotonic object added to Timeline (date: ' + object.date + 
+          "; last object's date: " + this.objects[this.objects.length - 1].date + ')');
       }
     }
     this.objects.push(object);
+  }
+
+  getDates() {
+    return this.objects.map(o => o.date);
   }
 
   // Returns the newest object whose date is less than the given date
@@ -256,6 +267,42 @@ class Timeline {
     }
 
     return last;
+  }
+
+  // dataSets is an array of {date: Date, path: String} objects listing paths to 
+  // map files.
+  // returns a promise that will result in a new Timeline of Map objects.
+  static async loadMaps(dataSets) {
+    const promises = [];
+    for (const dataSet of dataSets) {
+        var thisDataSetPromises = []
+        for (const path of dataSet.paths) {
+            var promise = fs.promises
+                .readFile(path)
+                .then(json => JSON.parse(json.toString()));
+            thisDataSetPromises.push(promise);
+        }
+        var promise = Promise.all(thisDataSetPromises)
+            .then(mapDataItems => new Map(dataSet.date, mapDataItems));
+        promises.push(promise);
+    }
+
+    return Promise.all(promises).then(objs => new Timeline(objs));
+  }
+
+  // dataSets is an array of {date: Date, path: String} objects listing paths to 
+  // election results files.
+  // returns a promise that will result in a new Timeline of ElectionResults objects.
+  static async loadElectionResults(dataSets) {
+    var promises = []
+    for (const dataSet of dataSets) {
+        var promise = fs.promises
+            .readFile(dataSet.path)
+            .then(data => ElectionResults.parse(dataSet.date, new String(data)));
+        promises.push(promise);
+    }
+
+    return Promise.all(promises).then(objs => new Timeline(objs));
   }
 }
 
