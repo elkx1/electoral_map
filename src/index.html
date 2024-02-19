@@ -68,19 +68,30 @@
             border-top: 1px solid #ccc;
         }
 
-        /* Style for the mouseover and selected components within details view */
         #details-view-mouseover,
         #details-view-selected {
             /* Add common styling for details view components here */
             padding: 10px;
             height: 180px;
-            width: 280px;
             border: 1px solid #ccc;
         }
 
         #details-view-mouseover {
-            /* display: flex; */
             flex: 1;
+        }
+
+        #details-view-selected {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            justify-content: flex-start;
+            overflow-x: scroll;
+            overflow-y: hidden;
+        }
+
+        .selected-details-item {
+            width: 280px;
         }
 
         /* Style for the slider range */
@@ -91,6 +102,19 @@
             flex: 2; /* Take up remaining vertical space */
             display: flex;
             flex-direction: column;
+        }
+
+        ::-webkit-scrollbar {
+            width: 9px;
+            height: 9px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(155, 155, 155, 0.5);
+            border-radius: 20px;
+            border: transparent;
         }
     </style>
 
@@ -224,7 +248,8 @@
 
             var width = 280;
             var height = 180;
-            var radiusRelativeDim = 150;
+            var margin = {top: 20, right: 30, bottom: 40, left: 90};
+            
             const svg = parent.append("svg")
                 .style("width", width + "px")
                 .style("height", height + "px");
@@ -237,40 +262,56 @@
                 .style("text-decoration", "underline")  
                 .text(region.name());
             
+            var marginTop = 25;
+            var marginBottom = 35;
+            var marginLeft = 27;
+            var marginRight = 0;
+            var innerHeight = height - marginTop - marginBottom;
+            var innerWidth = width - marginLeft - marginRight;
+
             const g = svg
                 .append("g")
-                .attr("transform", "translate(" + radiusRelativeDim / 2 + "," + (radiusRelativeDim / 2 + 30) + ")");
+                .attr("transform", "translate(" + marginLeft + ", " + marginTop + ")");
+
+            const x = d3.scaleBand().range([0, innerWidth]).domain(electionResults.getPartyNames()).padding(0.1);
+            const y = d3.scaleLinear().domain([0, 100]).range([innerHeight, 0]);
+            
+            g
+                .append("g")
+                .attr("transform", "translate(0," + innerHeight + ")")
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                    .attr("transform", "translate(-10,0)rotate(-45)")
+                    .style("text-anchor", "end");
+
+            g.append("g").call(d3.axisLeft(y));
+
             g.selectAll(null)
                 .data(dataReady)
                 .enter()
-                .append("path")
-                .attr('d', d3.arc().innerRadius(radiusRelativeDim / 3).outerRadius(radiusRelativeDim / 2))
-                .attr("fill", function(d) { return getPartyColor(d.data.party); });
+                .append("rect")
+                .attr("x", d => x(d.data.party))
+                .attr("y", d => y(d.data.score))
+                .attr("width", x.bandwidth())
+                .attr("height", d => innerHeight - y(d.data.score))
+                .attr("fill", d => getPartyColor(d.data.party));
 
-            // again rebind for legend
-            var legendG = svg.selectAll(".legend") // note appending it to mySvg and not svg to make positioning easier
+            g.selectAll(null)
                 .data(dataReady)
-                .enter().append("g")
-                .attr("transform", function(d,i){
-                    return "translate(" + (width - 110) + "," + (i * 15 + 30) + ")"; // place each legend on the right and bump each one down 15 pixels
+                .enter()
+                .append("text")
+                .attr("y", d => x(d.data.party))
+                .attr("x", d => -y(d.data.score))
+                .attr("dy", x.bandwidth() / 2 + 5)
+                .attr("dx", 3)
+                .text(d => {
+                    if (d.data.score > 0) {
+                        return d.data.score.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+                    }
+                    return "";
                 })
-                .attr("class", "legend");   
-
-            legendG.append("rect") // make a matching color rect
-                .attr("width", 10)
-                .attr("height", 10)
-                .attr("fill", function(d, i) {
-                    return getPartyColor(d.data.party);
-                });
-
-            legendG.append("text") // add the text
-                .text(function(d){
-                    return d.data.party + ": " 
-                        + d.data.score.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "% ";
-                })
-                .style("font-size", 12)
-                .attr("y", 10)
-                .attr("x", 11);
+                .style("text-anchor", "start")
+                .attr("transform", "translate(0,0)rotate(-90)");
         }
 
         function generateTooltipContents(region, map, electionResults, aliasMap) {
@@ -292,8 +333,14 @@
         }
 
         function updateSelectionDetailsView(model, aliasMap) {
+            selectedDetailsView.html("");
+            var i = 0;
             for (const region of selectionModel.getSelectedRegions()) {
-                drawResultsDetailsChart(selectedDetailsView, region, model.getMap(), model.getElectionResults(), aliasMap);
+                var child = selectedDetailsView
+                    .append("div")
+                    .attr("class", "selected-details-item");
+                i++;
+                drawResultsDetailsChart(child, region, model.getMap(), model.getElectionResults(), aliasMap);
             }
         }
 
@@ -312,7 +359,17 @@
                 restyleRegionPaths(event.items);
                 updateSelectionDetailsView(model, aliasMap);
             })
+
+            svg.on('click', function (d) {
+                selectionModel.clear();
+            });
         }
+
+        const scrollContainer = document.querySelector("#details-view-selected");
+        scrollContainer.addEventListener("wheel", (evt) => {
+            evt.preventDefault();
+            scrollContainer.scrollLeft += evt.deltaY;
+        });
 
         function styleRegionPath(path, region) {
             var isSelected = selectionModel.isSelectedRegion(region);
@@ -321,8 +378,8 @@
                 path.transition()
                     .duration('50')
                     .attr('opacity', isHovered ? '.45' : '0.6')
-                    .attr("stroke", "black")
-                    .attr("stroke-width", isSelected ? "2.5px" : "1px");
+                    .attr("stroke", isSelected ? "#100259" : "black")
+                    .attr("stroke-width", isSelected ? "1.2px" : "1px");
             }
             else {
                 path.transition()
@@ -364,7 +421,18 @@
                 })
                 .on('click', function (d, feature) {
                     let region = model.getMap().getRegionByGeoJSONID(feature.id);
-                    selectionModel.setSelectedRegion(region);
+                    if (d.shiftKey) {
+                        if (selectionModel.isSelectedRegion(region)) {
+                            selectionModel.removeRegion(region);
+                        }
+                        else {
+                            selectionModel.addRegion(region);
+                        }
+                    }
+                    else {
+                        selectionModel.setSelectedRegion(region);
+                    }
+                    d.stopPropagation();
                 });
         }
 
