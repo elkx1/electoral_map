@@ -281,72 +281,42 @@
             drawResultsDetailsChart(mouseoverDetailsView, region, map, electionResults, aliasMap);
         }
 
-        var selectedRegion = null;
-        var hoveredRegion = null;
-        function setSelectedRegion(region, map, electionResults, aliasMap) {
-            var oldSelectedRegion = selectedRegion;
+        var selectionModel = new ElectionData.ElectionMapSelectionModel();
+        var hoveredModel = new ElectionData.ElectionMapSelectionModel();
 
-            selectedRegion = region;
-            drawResultsDetailsChart(selectedDetailsView, region, map, electionResults, aliasMap);
-
-            if (oldSelectedRegion) {
-                var oldPath = d3.select("#path" + oldSelectedRegion.id())
-                    .attr("clip-path", function (d) { return "url(#clip" + d.id + ")"; });
-                styleRegionPath(oldPath, oldSelectedRegion);
-            }
-
-            var path = d3.select("#path" + selectedRegion.id());
-            path.attr("clip-path", null);
-            var pathG = path.select(function() { return this.parentNode; });
-            pathG.raise();
-
-            styleRegionPath(path, region);
-        }
-
-        function isSelectedRegion(region) {
-            if (selectedRegion == null) {
-                return region == null;
-            }
-
-            if (region == null) {
-                return false;
-            }
-
-            return region.id() == selectedRegion.id();
-        }
-
-        function isHoveredRegion(region) {
-            if (hoveredRegion == null) {
-                return region == null;
-            }
-
-            if (region == null) {
-                return false;
-            }
-
-            return region.id() == hoveredRegion.id();
-        }
-
-        function setHoveredRegion(region, map, electionResults, aliasMap) {
-            var oldHoveredRegion = hoveredRegion;
-            hoveredRegion = region;
-
-            if (oldHoveredRegion) {
-                var oldPath = d3.select("#path" + oldHoveredRegion.id())
-                styleRegionPath(oldPath, oldHoveredRegion);
-            }
-
-            if (region) {
-                var path = d3.select("#path" + region.id())
+        function restyleRegionPaths(regions) {
+            for (const region of regions) {
+                var path = d3.select("#path" + region.id());
                 styleRegionPath(path, region);
-
-                generateTooltipContents(region, map, electionResults, aliasMap);
             }
         }
 
-        function styleRegionPath(path, feature) {
-            var isSelected = isSelectedRegion(feature);
-            var isHovered = isHoveredRegion(feature);
+        function updateSelectionDetailsView(model, aliasMap) {
+            for (const region of selectionModel.getSelectedRegions()) {
+                drawResultsDetailsChart(selectedDetailsView, region, model.getMap(), model.getElectionResults(), aliasMap);
+            }
+        }
+
+        function listenForHoverChanges(model, aliasMap) {
+            hoveredModel.onChanged(event => {
+                restyleRegionPaths(event.items);
+
+                if (event.type == ElectionData.ElectionMapSelectionModel.EventType.Added && event.items.length == 1) {
+                    generateTooltipContents(event.items[0], model.getMap(), model.getElectionResults(), aliasMap);
+                }
+            });
+        }
+
+        function listenForSelectionChanges(model, aliasMap) {
+            selectionModel.onChanged(event => {
+                restyleRegionPaths(event.items);
+                updateSelectionDetailsView(model, aliasMap);
+            })
+        }
+
+        function styleRegionPath(path, region) {
+            var isSelected = selectionModel.isSelectedRegion(region);
+            var isHovered = hoveredModel.isSelectedRegion(region);
             if (isSelected || isHovered) {
                 path.transition()
                     .duration('50')
@@ -363,25 +333,19 @@
             }
         }
 
-        function setMappedData(map, electionResults, aliasMap) {
-            if (hoveredRegion) {
-                generateTooltipContents(hoveredRegion, map, electionResults, aliasMap);
-            }
-
-            if (selectedRegion) {
-                setSelectedRegion(selectedRegion, map, electionResults, aliasMap);
-            }
+        function setMappedData(model, aliasMap) {
+            updateSelectionDetailsView(model, aliasMap);
 
             g.selectAll(".map-path")
                 .attr("fill", function (d) {
-                    let region = map.getRegionByGeoJSONID(d.id);
+                    let region = model.getMap().getRegionByGeoJSONID(d.id);
                     let electionRegionName = aliasMap.getElectionDataRegionNameByMapRegionName(region.name());
-                    let winningParty = electionResults.getWinningParty(electionRegionName);
+                    let winningParty = model.getElectionResults().getWinningParty(electionRegionName);
                     return getPartyColor(winningParty);
                 })
                 .on('mouseover', function (d, feature) {
-                    let region = map.getRegionByGeoJSONID(feature.id);
-                    setHoveredRegion(region, map, electionResults, aliasMap);
+                    let region = model.getMap().getRegionByGeoJSONID(feature.id);
+                    hoveredModel.setSelectedRegion(region);
                     tooltipDiv.style("visibility", "visible");
                     
                     // Don't show the mouse hover details on a mobile browser;
@@ -396,11 +360,11 @@
                     tooltipDiv.style("visibility", "hidden");
                     mouseoverDetailsView.style("visibility", "hidden");
 
-                    setHoveredRegion(null, map, electionResults, aliasMap);
+                    hoveredModel.clear();
                 })
                 .on('click', function (d, feature) {
-                    let region = map.getRegionByGeoJSONID(feature.id);
-                    setSelectedRegion(region, map, electionResults, aliasMap);
+                    let region = model.getMap().getRegionByGeoJSONID(feature.id);
+                    selectionModel.setSelectedRegion(region);
                 });
         }
 
@@ -408,10 +372,10 @@
             g.html("")
         }
 
-        function drawElectionResultsMap(map, electionResults, aliasMap) {
+        function drawElectionResultsMap(model, aliasMap) {
             // Render the map
             var node = g.selectAll(".map-poly")
-                .data(map.getTopoJSONFeatures())
+                .data(model.getMap().getTopoJSONFeatures())
                 .attr("class", "map-poly")
                 .enter()
                 .append("g");
@@ -429,12 +393,8 @@
                 .attr("stroke-width", "0.1px")
                 .attr("clip-path", function (d) { return "url(#clip" + d.id + ")"; });
 
-            setMappedData(map, electionResults, aliasMap);
+            setMappedData(model, aliasMap);
         };
-
-        function drawElectionResultsMapFromModel(model, aliasMap) {
-            drawElectionResultsMap(model.getMap(), model.getElectionResults(), aliasMap);
-        }
 
         function onDataLoaded(model) {
             let aliasMap = new ElectionData.RegionNameAliasMap(model.getAllMaps(), model.getAllElectionResults());
@@ -461,17 +421,20 @@
                 let EventFlags = ElectionData.ElectionMapModel.EventFlags;
                 if ((event.flags & EventFlags.MapChanged) != EventFlags.None) {
                     clearMap(); // todo draw to a different svg and cache
-                    drawElectionResultsMapFromModel(model, aliasMap);
+                    drawElectionResultsMap(model, aliasMap);
                 }
                 else if ((event.flags & EventFlags.ElectionResultsChanged) != EventFlags.None) {
-                    setMappedData(model.getMap(), model.getElectionResults(), aliasMap);
+                    setMappedData(model, aliasMap);
                 }
             });
-            drawElectionResultsMapFromModel(model, aliasMap);
+            drawElectionResultsMap(model, aliasMap);
 
             sliderRange.on('onchange', val => {
                 model.setDataByDate(model.getElectionResultsDates()[val])
             })
+
+            listenForHoverChanges(model, aliasMap);
+            listenForSelectionChanges(model, aliasMap);
         }
 
         var mapDataSets = [
