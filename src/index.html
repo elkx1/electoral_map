@@ -15,6 +15,7 @@
         body, html {
             margin: 0;
             padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
         .tooltip-mapped-data {
@@ -90,6 +91,13 @@
             overflow-y: hidden;
         }
 
+        #options {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            justify-content: flex-start;
+        }
+
         .selected-details-item {
             width: 280px;
         }
@@ -99,7 +107,7 @@
             /* Add styling for the slider range here */
             height: auto; /* Adjust the height as needed */
             background-color: #e0e0e0; /* Example background color for the slider */
-            flex: 2; /* Take up remaining vertical space */
+            width: 560px;
             display: flex;
             flex-direction: column;
         }
@@ -116,6 +124,82 @@
             border-radius: 20px;
             border: transparent;
         }
+
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            -webkit-transition: .4s;
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            -webkit-transition: .4s;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: #85bb65;
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px #85bb65;
+        }
+
+        input:checked + .slider:before {
+            -webkit-transform: translateX(26px);
+            -ms-transform: translateX(26px);
+            transform: translateX(26px);
+        }
+
+        /* Rounded sliders */
+        .slider.round {
+            border: 1px solid #bbb;
+            border-radius: 34px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+            offset: 0 1px;
+        }
+
+        .option {
+            padding: 5px;
+            margin: 5px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .option-label {
+            font-size: 18pt;
+            margin: 5px;
+        }
     </style>
 
     <div id="map"></div>
@@ -127,7 +211,18 @@
             <div id="details-view-mouseover"></div>
             <div id="details-view-selected"></div>
         </div>
-        <div id="slider-range"></div>
+        <div id="options">
+            <div id="slider-range"></div>
+            <div class="option">
+                <span class="option-label">
+                    Multi-select
+                </span>
+                <label class="switch">
+                    <input id="checkbox-multi-select" type="checkbox">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -152,6 +247,12 @@
         //  -> Multi-selection of constituencies
         //  -> Refactor to MVC architecture
         //  -> Selected constituencies allow viewing details in the form of stacked graph over time; tab control to select between the two views
+        //  -> Mobile support for multi-select
+        //  -> Mobile support for long tap to hover -> should still show hover details
+        //  -> Alternative hover details view: Show over graphs. This is yet another controller mode, with corresponding view.
+        //  -> Now we need generic containers for parts of the workspace that will be presented to the user.
+        //  -> More selection modes: Region drag (rect etc.)
+
 
         // some random code off stackoverflow that says it can detect mobile browsers
         // https://stackoverflow.com/questions/11381673/detecting-a-mobile-browser
@@ -365,6 +466,24 @@
             });
         }
 
+        // Ugh this is getting out of hand. We need controllers... which is supposed to be the point of this
+        // branch.
+        // function listenForMultiSelectToggle() {
+
+        // }
+
+        const checkboxMultiSelect = document.querySelector('#checkbox-multi-select');
+        function isSelectionModeMultiSelect(event) {
+            // TODO move this to a controller; 
+            // also a SelectionModeModel, or just put a selection mode field on the selection model
+            // plus a corresponding ButtonGroup control. Pressing shift should automatically change 
+            // the current selection model displayed in the ButtonGroup from Single to Multi, so 
+            // that desktop users get the extra feedback when they have pressed a key that changes 
+            // the mode.
+            return event.shiftKey || checkboxMultiSelect.checked;
+        }
+
+        // Scroll wheel moves horizontally
         const scrollContainer = document.querySelector("#details-view-selected");
         scrollContainer.addEventListener("wheel", (evt) => {
             evt.preventDefault();
@@ -421,7 +540,7 @@
                 })
                 .on('click', function (d, feature) {
                     let region = model.getMap().getRegionByGeoJSONID(feature.id);
-                    if (d.shiftKey) {
+                    if (isSelectionModeMultiSelect(d)) {
                         if (selectionModel.isSelectedRegion(region)) {
                             selectionModel.removeRegion(region);
                         }
