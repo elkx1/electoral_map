@@ -194,7 +194,7 @@
             flex-direction: row;
             align-items: center;
         }
-        
+
         .option {
             padding: 5px;
             margin: 5px;
@@ -426,8 +426,6 @@
             tooltipDiv.html("");
 
             tooltipDiv.append("p").text(region.name());
-
-            drawResultsDetailsChart(mouseoverDetailsView, region, map, electionResults, aliasMap);
         }
 
         var selectionModel = new ElectionData.ElectionMapSelectionModel();
@@ -455,10 +453,20 @@
         function listenForHoverChanges(model, aliasMap) {
             hoveredModel.onChanged(event => {
                 restyleRegionPaths(event.items);
-
+                
                 if (event.type == ElectionData.ElectionMapSelectionModel.EventType.Added && event.items.length == 1) {
                     generateTooltipContents(event.items[0], model.getMap(), model.getElectionResults(), aliasMap);
+                    
+                    // Don't show the mouse hover details on a mobile browser;
+                    if (!isMobileBrowser) {
+                        drawResultsDetailsChart(mouseoverDetailsView, event.items[0], model.getMap(), model.getElectionResults(), aliasMap);
+                    }
                 }
+                
+                // Don't show the mouse hover details on a mobile browser;
+                var visible = hoveredModel.getSelectedCount() != 0;
+                visible = visible & !isMobileBrowser;
+                mouseoverDetailsView.style("visibility", visible ? "visible" : "hidden");
             });
         }
 
@@ -531,10 +539,7 @@
                     hoveredModel.setSelectedRegion(region);
                     tooltipDiv.style("visibility", "visible");
                     
-                    // Don't show the mouse hover details on a mobile browser;
-                    if (!isMobileBrowser) {
-                        mouseoverDetailsView.style("visibility", "visible");
-                    }
+                    
                 })
                 .on('mousemove', function (d, feature) {
                     updateTooltipPosition(d);
