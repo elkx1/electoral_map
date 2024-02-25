@@ -284,11 +284,16 @@
         function zoomed(event) {
             const {transform} = event;
             g.attr("transform", transform);
-            updateTooltipPosition(event.sourceEvent)
+            updateTooltipPosition();
         }
 
         const zoom = d3.zoom().scaleExtent([0.03, 300]).on("zoom", zoomed);
         svg.call(zoom);
+
+        function zoomCoordsToPageCoords(point) {
+            var transform = d3.zoomTransform(svg.node());
+            return transform.apply(point);
+        }
 
         // Projection using geoMercator
         const projection = d3.geoMercator()
@@ -333,17 +338,6 @@
         const selectedDetailsView = d3.select("#details-view-selected")
             .style("visibility", "visible") // todo should be hidden to start
             .style("z-index", "0");
-
-        function updateTooltipPosition(mouseEvent) {
-            // This is horrible code; we should really have a MVC architecture
-            // But that also would require splitting this thing into something much bigger.
-            // Definitely something to aim towards
-            // var coordinates= d3.mouse(this);
-            tooltipDiv
-                .style("left", (mouseEvent.pageX + 10) + "px")
-                .style("top", (mouseEvent.pageY - 15) + "px")
-                .style("position", "absolute");
-        }
 
         function drawResultsDetailsChart(parent, region, map, electionResults, aliasMap) {
             parent.html("");
@@ -432,6 +426,23 @@
         var selectionModel = new ElectionData.ElectionMapSelectionModel();
         var hoveredModel = new ElectionData.ElectionMapSelectionModel();
 
+        function setTooltipPosition(center) {
+            tooltipDiv
+                .style("left", (center[0] + 10) + "px")
+                .style("top", (center[1] - 15) + "px")
+                .style("position", "absolute");
+        }
+            
+        function updateTooltipPosition() {
+            var regions = hoveredModel.getSelectedRegions();
+            if (regions.length == 0) {
+                return;
+            }
+            var centroid = path.centroid(regions[0].geoJSON());
+            var pageCentroid = zoomCoordsToPageCoords(centroid);
+            setTooltipPosition(pageCentroid);
+        }
+
         function restyleRegionPaths(regions) {
             for (const region of regions) {
                 var path = d3.select("#path" + region.id());
@@ -454,7 +465,8 @@
         function listenForHoverChanges(model, aliasMap) {
             hoveredModel.onChanged(event => {
                 restyleRegionPaths(event.items);
-                
+                updateTooltipPosition();
+
                 if (event.type == ElectionData.ElectionMapSelectionModel.EventType.Added && event.items.length == 1) {
                     generateTooltipContents(event.items[0], model.getMap(), model.getElectionResults(), aliasMap);
                     
@@ -543,7 +555,6 @@
                     
                 })
                 .on('mousemove', function (d, feature) {
-                    updateTooltipPosition(d);
                 })
                 .on('mouseout', function (d, feature) {
                     tooltipDiv.style("visibility", "hidden");

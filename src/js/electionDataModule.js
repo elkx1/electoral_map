@@ -162,6 +162,10 @@ class MapRegion {
     simplifyMapFeature(this._geoJSONFeature);
   }
 
+  geoJSON() {
+    return this._geoJSONFeature;
+  }
+  
   name() {
     let properties = this._geoJSONFeature.properties;
 
