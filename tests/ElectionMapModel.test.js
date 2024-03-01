@@ -1,7 +1,7 @@
-import { ElectionResults, Map, Timeline } from '../src/js/electionDataModule.js';
+import { Timeline } from '../src/js/model/Timeline';
 import * as path from 'path'
 import { fileURLToPath } from 'url';
-import { ElectionMapModel } from '../src/js/ElectionMapModel.js';
+import { ElectionMapModel } from '../src/js/model/ElectionMapModel';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

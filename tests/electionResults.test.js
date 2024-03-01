@@ -1,4 +1,4 @@
-import { ElectionResults } from "../src/js/electionDataModule";
+import { ElectionResults } from "../src/js/model/ElectionResults";
 
 // Sample election data
 const sampleData = [

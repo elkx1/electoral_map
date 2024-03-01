@@ -1,5 +1,5 @@
-import { ElectionMapSelectionModel } from "../src/js/ElectionMapSelectionModel.js";
-import { Map, MapRegion } from "../src/js/electionDataModule.js";
+import { ElectionMapSelectionModel } from "../src/js/model/ElectionMapSelectionModel";
+import { Map } from "../src/js/model/Map";
 import * as fs from 'fs'
 import * as path from 'path'
 import jest from 'jest-mock'

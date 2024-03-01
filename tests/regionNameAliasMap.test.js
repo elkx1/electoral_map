@@ -1,4 +1,6 @@
-import { RegionNameAliasMap, ElectionResults, Map } from '../src/js/electionDataModule.js';
+import { RegionNameAliasMap } from '../src/js/model/RegionNameAliasMap';
+import { ElectionResults } from '../src/js/model/ElectionResults';
+import { Map } from '../src/js/model/Map';
 import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'url';

@@ -1,4 +1,5 @@
-import { Map, MapRegion } from '../src/js/electionDataModule.js';
+import { Map } from '../src/js/model/Map';
+import { MapRegion } from '../src/js/model/MapRegion';
 import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'url';

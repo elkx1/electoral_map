@@ -1,5 +1,5 @@
-import { Observable } from "./Observable.js";
-import { MapRegion } from "./electionDataModule.js";
+import { Observable } from "../util/Observable.js";
+import { MapRegion } from "./MapRegion.js";
 
 const EventType = {
     None: 0,

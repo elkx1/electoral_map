@@ -1,4 +1,4 @@
-import { Observable } from "./Observable.js";
+import { Observable } from "../util/Observable.js";
 
 const EventFlags = {
     None: 0,

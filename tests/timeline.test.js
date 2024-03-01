@@ -1,4 +1,4 @@
-import { Timeline } from "../src/js/electionDataModule";
+import { Timeline } from "../src/js/model/Timeline";
 
 describe('Timeline class', () => {
   let timeline;
