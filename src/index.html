@@ -8,6 +8,13 @@
 
     <script src="bundle.js"></script>
     <script data-goatcounter="https://elkx1.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+
+    <!-- 
+        Prevent scaling of UI elements; on mobile devices, without this, the user can pinch to zoom on a control
+        and accidentally make the UI invisible permanently, because then they can only pinch to zoom in the centre.
+        Only way around this seems to be to disable zooming.
+    -->
+    <meta name="viewport" content="user-scalable=no"/>
 </head>
 
 <body>
