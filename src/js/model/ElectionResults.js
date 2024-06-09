@@ -6,6 +6,19 @@ class ElectionResults {
       this._partyNames = results.length == 0 ? [] : Object.keys(results[0]).filter(
         col => col !== 'Name' && col !== 'MP' && col !== 'Area' && col !== 'County' && col !== 'Electorate'
       );
+
+      // This is a silly thing we have to do because of the strange format choices made
+      // by electoral calculus in producing their flat file
+      if (this._partyNames.length == 6) {
+        this._partyNames_northernIreland = [
+          'OUP/UUP', 'SDLP', 'DUP', 'SF', 'MIN', 'OTH'
+        ]
+      }
+      else {
+        this._partyNames_northernIreland = [
+          'OUP/UUP', 'SDLP', 'DUP', 'Alliance', 'Green', 'SF', 'MIN', 'OTH'
+        ]
+      }
   
       this._regionNames = results.map(item => item.Name);
   
@@ -15,7 +28,11 @@ class ElectionResults {
   
       results.forEach(result => {
         const regionName = result.Name;
-        const partyScores = this._partyNames.map(party => ({ party, score: parseInt(result[party]) }));
+        const isNI = this.isNorthernIreland(regionName);
+        const partyScores = this._partyNames.map((party, index) => ({ 
+          party: (isNI ? this._partyNames_northernIreland[index] : party), 
+          score: parseInt(result[party]) 
+        }));
   
         const winningParty = partyScores.reduce((prev, current) => (prev.score > current.score ? prev : current)).party;
         this._winningParties[regionName] = winningParty;
@@ -32,9 +49,32 @@ class ElectionResults {
         // console.log("Winnning party for " + regionName + ": " + winningParty)
       });
     }
+
+    isNorthernIreland(regionName) {
+      return (
+        regionName === "Foyle" ||
+        regionName === "Londonderry East" ||
+        regionName === "Antrim North" ||
+        regionName === "Antrim East" ||
+        regionName === "Antrim South" ||
+        regionName === "Ulster Mid" ||
+        regionName === "Tyrone West" ||
+        regionName === "Fermanagh and South Tyrone" ||
+        regionName === "Newry and Armagh" ||
+        regionName === "Upper Bann" ||
+        regionName === "Down South" ||
+        regionName === "Lagan Valley" ||
+        regionName === "Strangford" ||
+        regionName === "Belfast West" ||
+        regionName === "Belfast South" ||
+        regionName === "Belfast North" ||
+        regionName === "Belfast East" ||
+        regionName === "Down North"
+      );
+    }
   
-    getPartyNames() {
-      return this._partyNames;
+    getPartyNames(regionName) {
+      return this.isNorthernIreland(regionName) ? this._partyNames_northernIreland : this._partyNames;
     }
   
     getRegionNames() {

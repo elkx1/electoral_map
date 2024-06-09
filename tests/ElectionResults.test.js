@@ -17,7 +17,7 @@ describe('ElectionData', () => {
   });
 
   test('should return an array of party names', () => {
-    const partyNames = electionData.getPartyNames();
+    const partyNames = electionData.getPartyNames('Aldershot');
     expect(partyNames).toEqual(['CON', 'LAB', 'LIB', 'Brexit', 'Green', 'NAT', 'MIN', 'OTH']);
   });
 

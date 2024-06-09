@@ -321,6 +321,11 @@
             "MIN": "pink",
             "OTH": "grey",
             "UKIP": "purple",
+            "OUP/UUP": "#99CCFF",
+            "SDLP": "#FD9999",
+            "DUP": "#849CFF",
+            "Alliance": "#F4C72E",
+            "SF": "#79DD9A",
         };
         function getPartyColor(name) {
             if (name in partyColors) {
@@ -383,7 +388,7 @@
                 .append("g")
                 .attr("transform", "translate(" + marginLeft + ", " + marginTop + ")");
 
-            const x = d3.scaleBand().range([0, innerWidth]).domain(electionResults.getPartyNames()).padding(0.1);
+            const x = d3.scaleBand().range([0, innerWidth]).domain(electionResults.getPartyNames(electionRegionName)).padding(0.1);
             const y = d3.scaleLinear().domain([0, 100]).range([innerHeight, 0]);
             
             g
